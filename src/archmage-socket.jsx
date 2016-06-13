@@ -172,7 +172,7 @@ export class ArchmageSocket {
 
   newCallbackId() {
     this.currentCallbackId += 1;
-    if (this.currentCallbackId > TSPSocket.defaults.midMax) {
+    if (this.currentCallbackId > defaults.midMax) {
       this.currentCallbackId = 0;
     }
     return String(this.currentCallbackId);
@@ -181,7 +181,7 @@ export class ArchmageSocket {
   onMessage(msg) {
     let msgObj;
     let isTiip = true;
-    let tiipHandling = true;
+    let errorReason = '';
 
     try {
       msgObj = tiip.unpack(msg.data);
@@ -193,7 +193,7 @@ export class ArchmageSocket {
 
     if (isTiip) {
       switch (msgObj.type) {
-        case 'rep':
+        case 'rep': {
           // If an object exists with msgObj.mid in reqCallbacks, resolve it
           if (this.reqCallbacks.hasOwnProperty(msgObj.mid)) {
             const reqCallbackObj = this.reqCallbacks[msgObj.mid];
@@ -201,39 +201,44 @@ export class ArchmageSocket {
             reqCallbackObj.resolve(msgObj);
             delete this.reqCallbacks[msgObj.mid];
           } else {
-            tiipHandling = false;
+            errorReason = 'No request matched server reply';
           }
           break;
-        case 'pub':
-          let pubKey;
-          Object.keys(this.subCallbacks).some(key => {
+        }
+        case 'pub': {
+          if (!Object.keys(this.subCallbacks).some(key => {
             // There could be a subchannel, cut the channel
             if (key === msgObj.source[0].substring(0, key.length)) {
-              pubKey = key;
+              // If an object exists in subCallbacks, invoke its cb
+              const subCallbackObj = this.subCallbacks[key];
+              if (subCallbackObj.callback) {
+                subCallbackObj.callback({
+                  timestamp: msgObj.timestamp,
+                  source: msgObj.source,
+                  signal: msgObj.signal,
+                  payload: msgObj.payload,
+                });
+              }
               return true; // exit loop
             }
             return false;
-          });
-          if (pubKey) { // If an object exists in subCallbacks, invoke its cb
-            const subCallbackObj = this.subCallbacks[pubKey];
-            if (subCallbackObj.callback) {
-              subCallbackObj.callback({
-                timestamp: msgObj.timestamp,
-                source: msgObj.source,
-                signal: msgObj.signal,
-                payload: msgObj.payload,
-              });
-            }
-          } else {
-            tiipHandling = false;
+          })) {
+            // No key found
+            errorReason = 'No subscription for publication from server';
           }
           break;
-        default:
-          tiipHandling = false;
+        }
+        default: {
+          errorReason = 'Unknown message type';
+        }
       }
     }
     if (this.receiveCallback) {
-      this.receiveCallback(msg.data, tiipHandling, isTiip && msgObj.type);
+      if (isTiip) {
+        this.receiveCallback(msg.data, errorReason || false, msgObj.type);
+      } else {
+        this.receiveCallback(msg.data);
+      }
     }
   }
 }
