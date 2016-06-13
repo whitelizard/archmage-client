@@ -4,7 +4,7 @@ import Ws from 'ws';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
-const readyState = {
+export const readyStates = {
   CONNECTING: 0,
   OPEN: 1,
   CLOSING: 2,
@@ -66,13 +66,12 @@ export default class WsClient {
   }
 
   send(message) {
-    const self = this;
     return new Promise((resolve, reject) => {
-      if (self.readyState === readyState.RECONNECT_ABORTED) {
+      if (this.readyState === readyStates.RECONNECT_ABORTED) {
         reject('Socket connection has been closed');
       } else {
-        self.sendQueue.push({ message, resolve });
-        self.fireQueue();
+        this.sendQueue.push({ message, resolve });
+        this.fireQueue();
       }
     });
   }
@@ -97,7 +96,7 @@ export default class WsClient {
   // /////////////////////////////////////////////
 
   connect(force) {
-    if (force || !this.socket || this.socket.readyState !== readyState.OPEN) {
+    if (force || !this.socket || this.socket.readyState !== readyStates.OPEN) {
       this.socket = createWebSocket(this.url, this.protocols);
       this.socket.onmessage = ::this.onMessageHandler;
       this.socket.onopen = ::this.onOpenHandler;
@@ -108,7 +107,7 @@ export default class WsClient {
   }
 
   fireQueue() {
-    while (this.sendQueue.length && this.socket.readyState === readyState.OPEN) {
+    while (this.sendQueue.length && this.socket.readyState === readyStates.OPEN) {
       const data = this.sendQueue.shift();
       this.socket.send(_.isString(data.message)
         ? data.message
@@ -158,7 +157,7 @@ export default class WsClient {
 // send(message) {
 //   const self = this;
 //   const promise = Promise.defer();
-//   if (self.readyState === readyState.RECONNECT_ABORTED) {
+//   if (self.readyState === readyStates.RECONNECT_ABORTED) {
 //     promise.reject('Socket connection has been closed');
 //   } else {
 //     self.sendQueue.push({
@@ -175,7 +174,7 @@ export default class WsClient {
   //   const self = this;
   //   let promise = cancelableify(deferred.promise);
   //
-  //   if (this.readyState === readyState.RECONNECT_ABORTED) {
+  //   if (this.readyState === readyStates.RECONNECT_ABORTED) {
   //     deferred.reject('Socket connection has been closed');
   //   }
   //   else {
