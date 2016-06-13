@@ -85,11 +85,13 @@ export class ArchmageSocket {
 
   unsub(signal, args, payload, pid, source) {
     let channelKey;
-    Object.keys(this.subCallbacks).some(key => { // TODO: return true !!
+    Object.keys(this.subCallbacks).some(key => {
       if (args.rid === this.subCallbacks[key].rid) {
         channelKey = key;
         delete this.subCallbacks[key];
+        return true; // exit loop
       }
+      return false;
     }, this);
     if (channelKey) {
       return this.send('unsub',
@@ -177,18 +179,19 @@ export class ArchmageSocket {
   }
 
   onMessage(msg) {
-    let tiipHandling = true;
     let msgObj;
+    let isTiip = true;
+    let tiipHandling = true;
 
     try {
       msgObj = tiip.unpack(msg.data);
-      console.log('Msg received: ', msgObj);
+      // console.log('Msg received: ', msgObj);
     } catch (err) {
-      tiipHandling = false;  // non-tiip messge
-      console.log('Msg received: ', msg.data);
+      isTiip = false;  // non-tiip messge
+      // console.log('Msg received: ', msg.data);
     }
 
-    if (tiipHandling) {
+    if (isTiip) {
       switch (msgObj.type) {
         case 'rep':
           // If an object exists with msgObj.mid in reqCallbacks, resolve it
@@ -204,16 +207,23 @@ export class ArchmageSocket {
         case 'pub':
           let pubKey;
           Object.keys(this.subCallbacks).some(key => {
-            if (key === msgObj.signal.substring(0, key.length)) {
+            // There could be a subchannel, cut the channel
+            if (key === msgObj.source[0].substring(0, key.length)) {
               pubKey = key;
-              return true;
+              return true; // exit loop
             }
             return false;
           });
-          // if (this.subCallbacks.hasOwnProperty(pubKey)) {  // If an object exists with msgObj.signal in subCallbacks, invoke its callback
-          if (pubKey) {  // If an object exists with msgObj.signal in subCallbacks, invoke its callback
-            var subCallbackObj = this.subCallbacks[pubKey];
-            if (subCallbackObj.callback) subCallbackObj.callback(msgObj.payload[0], msgObj.signal);
+          if (pubKey) { // If an object exists in subCallbacks, invoke its cb
+            const subCallbackObj = this.subCallbacks[pubKey];
+            if (subCallbackObj.callback) {
+              subCallbackObj.callback({
+                timestamp: msgObj.timestamp,
+                source: msgObj.source,
+                signal: msgObj.signal,
+                payload: msgObj.payload,
+              });
+            }
           } else {
             tiipHandling = false;
           }
@@ -222,9 +232,8 @@ export class ArchmageSocket {
           tiipHandling = false;
       }
     }
-    // Com.$log.debug('receiveCallback: ', this.receiveCallback);
     if (this.receiveCallback) {
-      this.receiveCallback(msg.data, tiipHandling, tiipHandling && msgObj.type);
+      this.receiveCallback(msg.data, tiipHandling, isTiip && msgObj.type);
     }
   }
 }
