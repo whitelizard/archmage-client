@@ -3,7 +3,7 @@ import * as tiip from 'jstiip';
 import Promise from 'bluebird';
 
 const defaults = {
-  initTarget: 'tiip_controller',
+  initTarget: 'TiipController',
   timeoutOnRequests: 30 * 1000,
   midMax: 10000,
   timeoutErrorMessage: 'Timeout',
@@ -41,13 +41,13 @@ export class ArchmageSocket {
 
   // ------ INTERFACE IMPLEMENTATION ------ //
 
-  init(userId, passwordHash, tenant, target, signal, source, payloadExtra) {
-    let payload = [userId, passwordHash];
-    if (payloadExtra) {
-      payload = payload.concat(payloadExtra);
+  init(userId, passwordHash, tenant, target, signal, source, extraArgs) {
+    let args = { id: userId, password: passwordHash };
+    if (extraArgs) {
+      args = { ...args, ...extraArgs };
     }
     return this.request(
-      'init', target || defaults.initTarget, signal, undefined, payload, tenant, source
+      'init', target || defaults.initTarget, signal, args, undefined, tenant, source
     );
   }
 
