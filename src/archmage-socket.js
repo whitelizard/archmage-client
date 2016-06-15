@@ -3,8 +3,7 @@ import * as tiip from 'jstiip';
 import Promise from 'bluebird';
 
 const defaults = {
-  initPid: 'tiip_controller',
-  busAPIName: 'xibus',
+  initTarget: 'tiip_controller',
   timeoutOnRequests: 30 * 1000,
   midMax: 10000,
   timeoutErrorMessage: 'Timeout',
@@ -19,7 +18,6 @@ export class ArchmageSocket {
       onSend,
       onSendFail,
       onReceive,
-      busAPIName,
       timeoutOnRequests,
       ...rest,
     } = options;
@@ -27,28 +25,29 @@ export class ArchmageSocket {
     this.sendCallback = onSend;
     this.sendFailCallback = onSendFail;
     this.receiveCallback = onReceive;
-    this.busAPIName = busAPIName;
     this.timeoutOnRequests = timeoutOnRequests;
 
     this.currentCallbackId = 0;
     this.reqCallbacks = {};
     this.subCallbacks = {};
 
-    const wsClientOptions = { ...rest };
-    wsClientOptions.reconnectIfNotNormalClose = true;
+    const wsClientOptions = {
+      reconnectIfNotNormalClose: true,
+      ...rest,
+    };
     this.ws = new WsClient(url, protocols, wsClientOptions);
     this.ws.onMessage(::this.onMessage);
   }
 
   // ------ INTERFACE IMPLEMENTATION ------ //
 
-  init(userId, passwordHash, tenant, pid, signal, source, payloadExtra) {
+  init(userId, passwordHash, tenant, target, signal, source, payloadExtra) {
     let payload = [userId, passwordHash];
     if (payloadExtra) {
       payload = payload.concat(payloadExtra);
     }
     return this.request(
-      'init', pid || defaults.initPid, signal, undefined, payload, tenant, source
+      'init', target || defaults.initTarget, signal, undefined, payload, tenant, source
     );
   }
 
@@ -56,11 +55,11 @@ export class ArchmageSocket {
     return this.ws.close(force);
   }
 
-  req(pid, signal, args, payload, source) {
-    return this.request('req', pid, signal, args, payload, undefined, source);
+  req(target, signal, args, payload, source) {
+    return this.request('req', target, signal, args, payload, undefined, source);
   }
 
-  sub(callback, signal, args, payload, pid, source) {
+  sub(callback, signal, args, payload, target, source) {
     /**
     args: {rid: <DataChannel rid>}
     The DataChannel rid as input is not the same as channel received in reply in payload.
@@ -68,7 +67,7 @@ export class ArchmageSocket {
     */
 
     return this.request(
-      'sub', pid || this.busAPIName || defaults.busAPIName, signal, args, payload, undefined, source
+      'sub', undefined, signal, args, payload, undefined, source
     ).then(tiipMsg => {
       if (tiipMsg.ok && tiipMsg.payload) {
         if (tiipMsg.payload[0]) {
@@ -83,7 +82,7 @@ export class ArchmageSocket {
     });
   }
 
-  unsub(signal, args, payload, pid, source) {
+  unsub(signal, args, payload, target, source) {
     let channelKey;
     Object.keys(this.subCallbacks).some(key => {
       if (args.rid === this.subCallbacks[key].rid) {
@@ -95,15 +94,15 @@ export class ArchmageSocket {
     }, this);
     if (channelKey) {
       return this.send('unsub',
-        pid || this.busAPIName || defaults.busAPIName, signal, args, payload, undefined, source
+        undefined, signal, args, payload, undefined, source
       );
     }
     return Promise.resolve();
   }
 
-  pub(signal, payload, pid, source, args) {
+  pub(signal, payload, target, source, args) {
     return this.send('pub',
-      pid || this.busAPIName || defaults.busAPIName, signal, args, payload, undefined, source
+      undefined, signal, args, payload, undefined, source
     );
   }
 
@@ -111,9 +110,9 @@ export class ArchmageSocket {
     return this.ws.socket.readyState === readyStates.OPEN;
   }
 
-  send(type, pid, signal, args, payload, tenant, source, ok) {
+  send(type, target, signal, args, payload, tenant, source, ok) {
     const tiipMsg = tiip.pack(
-      type, pid, signal, args, payload, undefined, tenant, source, undefined, ok
+      type, target, signal, args, payload, undefined, tenant, source, undefined, ok
     );
     return this.sendRaw(tiipMsg);
   }
@@ -134,9 +133,9 @@ export class ArchmageSocket {
       });
   }
 
-  request(type, pid, signal, args, payload, tenant, source) {
+  request(type, target, signal, args, payload, tenant, source) {
     const msg = { type };
-    if (pid !== undefined && pid !== null) msg.pid = pid;
+    if (target !== undefined && target !== null) msg.target = target;
     if (signal !== undefined && signal !== null) msg.signal = signal;
     if (args !== undefined && args !== null) msg.arguments = args;
     if (payload !== undefined && payload !== null) msg.payload = payload;
