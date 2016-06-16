@@ -9,8 +9,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "babel src -d lib",
-    "lint": "eslint src",
-    "prepublish": "npm build",
+    "lint": "eslint src --ext js --ext jsx",
+    "prepublish": "npm run build",
     "docgen": "jsdox lib -o docs"
   },
   "repository": {
@@ -43,6 +43,7 @@
     "babel-core": "^6.9.1",
     "babel-eslint": "^6.0.4",
     "babel-plugin-transform-class-properties": "^6.9.1",
+    "babel-plugin-transform-object-rest-spread": "^6.8.0",
     "babel-preset-es2015": "^6.9.0",
     "babel-preset-stage-0": "^6.5.0",
     "babel-preset-stage-3": "^6.5.0",
