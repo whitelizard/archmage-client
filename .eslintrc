@@ -19,16 +19,8 @@
       ]
     }],
 
-    "react/jsx-no-bind": [2, {
-      "ignoreRefs": false,
-      "allowArrowFunctions": true,
-      "allowBind": true
-    }],
-
     "import/no-unresolved": [0],
-    "react/prefer-stateless-function": [0],
-    "no-restricted-syntax": [0],
-    "jsx-a11y/img-has-alt": [0]
+    "no-restricted-syntax": [0]
   },
 
   "parserOptions": {

@@ -186,7 +186,7 @@ export class ArchmageSocket {
       msgObj = tiip.unpack(msg.data);
       // console.log('Msg received: ', msgObj);
     } catch (err) {
-      isTiip = false;  // non-tiip messge
+      isTiip = false; // non-tiip messge
       // console.log('Msg received: ', msg.data);
     }
 

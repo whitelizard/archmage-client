@@ -98,7 +98,9 @@ export default class ArchmageSession {
   //     if (msgObj.ok) {
   //       defer.resolve(this);  // this is set to msgObj on previous call
   //     } else {
-  //       defer.reject('sub.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined'));
+  //       defer.reject(
+  //       'sub.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined')
+  //       );
   //     }
   //   }
   //
@@ -109,7 +111,9 @@ export default class ArchmageSession {
   //       this.socket.sub(this.userObjUpdate, signal, [rid])
   //         .then(subSuccess.bind(msgObj), defer.reject);
   //     } else {
-  //       defer.reject('req.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined'));
+  //       defer.reject(
+  //       'req.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined')
+  //       );
   //     }
   //   }
   // }
