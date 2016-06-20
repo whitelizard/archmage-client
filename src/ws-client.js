@@ -1,6 +1,6 @@
 import Promise from 'bluebird';
 import _ from 'lodash';
-import Ws from 'ws';
+// import Ws from 'ws';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
@@ -17,7 +17,8 @@ function createWebSocket(url, protocols) {
   if (!urlOk) {
     throw new Error('Invalid url provided');
   }
-  const Socket = Ws || window.WebSocket || window.MozWebSocket;
+  // Ws ||
+  const Socket = window.WebSocket || window.MozWebSocket;
   return new Socket(url, protocols);
 }
 
