@@ -1,6 +1,5 @@
 import Promise from 'bluebird';
 import _ from 'lodash';
-import Ws from 'ws';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
@@ -17,7 +16,7 @@ function createWebSocket(url, protocols) {
   if (!urlOk) {
     throw new Error('Invalid url provided');
   }
-  const Socket = Ws || window.WebSocket || window.MozWebSocket;
+  const Socket = window.WebSocket || window.MozWebSocket;
   return new Socket(url, protocols);
 }
 
@@ -25,7 +24,7 @@ export default class WsClient {
 
   // PUBLIC /////////////////////////////////////
   constructor(url, protocols, options) {
-    this.protocols = protocols;
+    this.protocols = protocols || undefined;
     this.url = url;
     this.timeoutStart = options && options.timeoutStart || 300;
     this.timeoutMax = options && options.timeoutMax || 2 * 60 * 1000;

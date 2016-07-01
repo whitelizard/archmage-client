@@ -36,9 +36,9 @@ export default class ArchmageSession {
     return this.socket.isOpen() && this.authenticated;
   }
 
-  auth(userId, password, tenant, pid, signal, source, payloadExtra) {
+  auth(userId, password, tenant, target, signal, source, payloadExtra) {
     const passwordHash = this.hashify(password);
-    return this.socket.init(userId, password, tenant, pid, signal, source, payloadExtra)
+    return this.socket.init(userId, password, tenant, target, signal, source, payloadExtra)
       .then(msgObj => {
         if (!this.handleInitReply(msgObj, userId, passwordHash)) {
           const reason = `${msgObj.signal}: ${msgObj.payload && msgObj.payload[0]}`;
