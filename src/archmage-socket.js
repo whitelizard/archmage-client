@@ -14,6 +14,7 @@ export class ArchmageSocket {
   // ------ SETUP ------ //
 
   constructor(url, protocols, options) {
+    options = options || {};  // TODO: Options should be handled more nicely
     const {
       onSend,
       onSendFail,
