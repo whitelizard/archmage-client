@@ -17,14 +17,14 @@ function createWebSocket(url, protocols) {
     throw new Error('Invalid url provided');
   }
   const Socket = window.WebSocket || window.MozWebSocket;
-  return new Socket(url, protocols);
+  return new Socket(url, protocols || undefined);
 }
 
 export default class WsClient {
 
   // PUBLIC /////////////////////////////////////
   constructor(url, protocols, options) {
-    this.protocols = protocols || undefined;
+    this.protocols = protocols;
     this.url = url;
     this.timeoutStart = options && options.timeoutStart || 300;
     this.timeoutMax = options && options.timeoutMax || 2 * 60 * 1000;

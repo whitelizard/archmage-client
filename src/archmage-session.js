@@ -12,22 +12,32 @@ export default class ArchmageSession {
 
   // ------ SETUP ------ //
 
-  constructor(url, protocols, options) {
-    if (options) {
-      this.reloginCallback = options.reloginCallback;
-      this.reloginFailCallback = options.reloginFailCallback;
-      this.userObjUpdateCallback = options.userObjUpdateCallback;
-      this.confAPIName = options.confAPIName;
-      this.readUserSignal = options.readUserSignal;
-      this.confUpdateSignal = options.confUpdateSignal;
-    }
+  constructor(url, protocols, options = {}) {
     this.authenticated = false;
     this.hasBeenConnected = false;
     this.authObj = undefined;
     this.user = undefined;
+    if (url) {
+      this.connect(url, protocols, options);
+    } else {
+      this.setOptions(options);
+    }
+  }
+
+  connect(url, protocols, options = {}) {
+    this.setOptions(options);
     this.socket = new ArchmageSocket(url, protocols, options);
     this.socket.ws.onOpen(this.onOpen);
     this.socket.ws.onClose(this.onClose);
+  }
+
+  setOptions(options) {
+    this.reloginCallback = options.reloginCallback || this.reloginCallback;
+    this.reloginFailCallback = options.reloginFailCallback || this.reloginFailCallback;
+    this.userObjUpdateCallback = options.userObjUpdateCallback || this.userObjUpdateCallback;
+    this.confAPIName = options.confAPIName || this.confAPIName;
+    this.readUserSignal = options.readUserSignal || this.readUserSignal;
+    this.confUpdateSignal = options.confUpdateSignal || this.confUpdateSignal;
   }
 
   // ------ INTERFACE IMPLEMENTATION ------ //
