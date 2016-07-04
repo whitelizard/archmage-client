@@ -43,7 +43,10 @@ export default class ArchmageSession {
   // ------ INTERFACE IMPLEMENTATION ------ //
 
   isOpen() {
-    return this.socket.isOpen() && this.authenticated;
+    if (this.socket) {
+      return this.socket.isOpen() && this.authenticated;
+    }
+    return false;
   }
 
   auth(userId, password, tenant, target, signal, source, payloadExtra) {
