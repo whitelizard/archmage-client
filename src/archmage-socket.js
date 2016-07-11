@@ -55,11 +55,11 @@ export class ArchmageSocket {
     return this.ws.close(force);
   }
 
-  req(target, signal, args, payload, source) {
-    return this.request('req', target, signal, args, payload, undefined, source);
+  req(target, signal, args, payload, source, tenant) {
+    return this.request('req', target, signal, args, payload, tenant, source);
   }
 
-  sub(callback, signal, args, payload, target, source) {
+  sub(callback, signal, args, payload, target, source, tenant) {
     /**
     args: {rid: <DataChannel rid>}
     The DataChannel rid as input is not the same as channel received in reply in payload.
@@ -67,7 +67,7 @@ export class ArchmageSocket {
     */
 
     return this.request(
-      'sub', undefined, signal, args, payload, undefined, source
+      'sub', undefined, signal, args, payload, tenant, source
     ).then(tiipMsg => {
       if (tiipMsg.ok && tiipMsg.payload) {
         if (tiipMsg.payload[0]) {
@@ -82,7 +82,7 @@ export class ArchmageSocket {
     });
   }
 
-  unsub(signal, args, payload, target, source) {
+  unsub(signal, args, payload, target, source, tenant) {
     let channelKey;
     Object.keys(this.subCallbacks).some(key => {
       if (args.rid === this.subCallbacks[key].rid) {
@@ -94,15 +94,15 @@ export class ArchmageSocket {
     }, this);
     if (channelKey) {
       return this.send('unsub',
-        undefined, signal, args, payload, undefined, source
+        undefined, signal, args, payload, tenant, source
       );
     }
     return Promise.resolve();
   }
 
-  pub(signal, payload, target, source, args) {
+  pub(signal, payload, target, source, args, tenant) {
     return this.send('pub',
-      undefined, signal, args, payload, undefined, source
+      undefined, signal, args, payload, tenant, source
     );
   }
 
