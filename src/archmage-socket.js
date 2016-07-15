@@ -122,7 +122,7 @@ export class ArchmageSocket {
   }
 
   sendObj(msgObj) {
-    return this.sendRaw(tiip.packObj(msgObj));
+    return this.sendRaw(tiip.packObj(msgObj.toJS()));
   }
 
   sendRaw(text) {

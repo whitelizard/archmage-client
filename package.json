@@ -34,11 +34,10 @@
   "dependencies": {
     "babel-polyfill": "^6.9.1",
     "bluebird": "^3.4.0",
+    "chai": "^3.5.0",
     "crypto": "0.0.3",
-    "fs": "0.0.2",
     "immutable": "^3.8.1",
-    "jstiip": "^1.0.3",
-    "tls": "0.0.1"
+    "jstiip": "^1.0.3"
   },
   "devDependencies": {
     "babel-cli": "^6.10.1",
