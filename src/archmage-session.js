@@ -27,8 +27,8 @@ export default class ArchmageSession {
   connect(url, protocols, options = {}) {
     this.setOptions(options);
     this.socket = new ArchmageSocket(url, protocols, options);
-    this.socket.ws.onOpen(this.onOpen);
-    this.socket.ws.onClose(this.onClose);
+    this.socket.ws.onOpen(::this.onOpen);
+    this.socket.ws.onClose(::this.onClose);
   }
 
   setOptions(options) {
