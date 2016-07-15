@@ -51,9 +51,12 @@ export default class ArchmageSession {
 
   auth(userId, password, tenant, target, signal, source, payloadExtra) {
     const passwordHash = this.hashify(password);
-    return this.socket.init(userId, password, tenant, target, signal, source, payloadExtra)
+    const reqInitObj = Map({
+      userId, passwordHash, tenant, target, signal, source, payloadExtra,
+    });
+    return this.socket.init(userId, passwordHash, tenant, target, signal, source, payloadExtra)
       .then(msgObj => {
-        if (!this.handleInitReply(msgObj, userId, passwordHash)) {
+        if (!this.handleInitReply(msgObj, reqInitObj)) {
           const reason = `${msgObj.signal}: ${msgObj.payload && msgObj.payload[0]}`;
           Promise.reject(reason);
         }
@@ -137,14 +140,14 @@ export default class ArchmageSession {
     return crypto.createHash('sha256').update(phrase).digest('hex');
   }
 
-  handleInitReply(msgObj, userId, pwHash) {
+  handleInitReply(msgObj, reqInitObj) {
     console.log('Login reply: ', msgObj);
     this.authenticated = msgObj.ok;
 
     if (msgObj.ok) {
-      this.authObj = { userId, passwordHash: pwHash, rid: null };
-      if (msgObj.payload && msgObj.payload[0]) {  // TODO: perhaps not rid in respons
-        this.authObj.rid = msgObj.payload[0];
+      this.authObj = reqInitObj.set('rid', undefined);
+      if (msgObj.payload && msgObj.payload[0]) {
+        this.authObj = reqInitObj.set('rid', msgObj.payload[0]);
       }
     }
     return msgObj.ok;
@@ -160,8 +163,17 @@ export default class ArchmageSession {
 
   onOpen() {
     if (this.hasBeenConnected && this.authObj) {  // Need to relogin?
-      this.socket.init(this.authObj.userId, this.authObj.passwordHash)
+      this.socket.init(
+        this.authObj.get('userId'),
+        this.authObj.get('passwordHash'),
+        this.authObj.get('tenant'),
+        this.authObj.get('target'),
+        this.authObj.get('signal'),
+        this.authObj.get('source'),
+        this.authObj.get('payloadExtra'),
+      )
         .then(msgObj => {
+          this.authenticated = msgObj.ok;
           console.log('Re-login attempt was successful');
           if (this.reloginCallback) this.reloginCallback(msgObj);
         })
@@ -174,6 +186,7 @@ export default class ArchmageSession {
 
   onClose() {
     this.hasBeenConnected = true;
+    this.authenticated = false;
   }
 }
 

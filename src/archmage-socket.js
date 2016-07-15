@@ -1,13 +1,14 @@
 import WsClient, { readyStates } from './ws-client';
 import * as tiip from 'jstiip';
 import Promise from 'bluebird';
+import { Map } from 'immutable';
 
-const defaults = {
+const defaults = Map({
   initTarget: 'TiipController',
   timeoutOnRequests: 30 * 1000,
   midMax: 10000,
   timeoutErrorMessage: 'Timeout',
-};
+});
 
 export class ArchmageSocket {
 
@@ -28,8 +29,8 @@ export class ArchmageSocket {
     this.timeoutOnRequests = timeoutOnRequests;
 
     this.currentCallbackId = 0;
-    this.reqCallbacks = {};
-    this.subCallbacks = {};
+    this.reqCallbacks = Map({});
+    this.subCallbacks = Map({});
 
     const wsClientOptions = {
       reconnectIfNotNormalClose: true,
@@ -42,16 +43,19 @@ export class ArchmageSocket {
   // ------ INTERFACE IMPLEMENTATION ------ //
 
   init(userId, passwordHash, tenant, target, signal, source, extraArgs) {
-    let args = { id: userId, password: passwordHash };
+    let args = Map({ id: userId, password: passwordHash });
     if (extraArgs) {
-      args = { ...args, ...extraArgs };
+      args = args.merge(extraArgs);
     }
     return this.request(
-      'init', target || defaults.initTarget, signal, args, undefined, tenant, source
+      'init', target || defaults.get('initTarget'), signal, args, undefined, tenant, source
     );
   }
 
   kill(force) {
+    this.reqCallbacks.forEach(reqObj => {
+      clearTimeout(reqObj.get('timeoutPromise'));
+    });
     return this.ws.close(force);
   }
 
@@ -61,7 +65,7 @@ export class ArchmageSocket {
 
   sub(callback, signal, args, payload, target, source, tenant) {
     /**
-    args: {rid: <DataChannel rid>}
+    args: Map:{rid: <DataChannel rid>}
     The DataChannel rid as input is not the same as channel received in reply in payload.
     The first is the id against the GUI and the second agains the server.
     */
@@ -72,10 +76,10 @@ export class ArchmageSocket {
       if (tiipMsg.ok && tiipMsg.payload) {
         if (tiipMsg.payload[0]) {
           // Only support for subscription to one channel at a time
-          this.subCallbacks[tiipMsg.payload[0]] = {
+          this.subCallbacks = this.subCallbacks.set(tiipMsg.payload[0], Map({
             callback,
-            rid: args.rid,
-          };
+            rid: args.get('rid'),
+          }));
         }
       }
       return tiipMsg;
@@ -84,10 +88,10 @@ export class ArchmageSocket {
 
   unsub(signal, args, payload, target, source, tenant) {
     let channelKey;
-    Object.keys(this.subCallbacks).some(key => {
-      if (args.rid === this.subCallbacks[key].rid) {
+    this.subCallbacks.some(key => {
+      if (args.get('rid') === this.subCallbacks.get(key).get('rid')) {
         channelKey = key;
-        delete this.subCallbacks[key];
+        this.subCallbacks = this.subCallbacks.delete(key);
         return true; // exit loop
       }
       return false;
@@ -134,34 +138,33 @@ export class ArchmageSocket {
   }
 
   request(type, target, signal, args, payload, tenant, source) {
-    const msg = { type };
-    if (target !== undefined && target !== null) msg.target = target;
-    if (signal !== undefined && signal !== null) msg.signal = signal;
-    if (args !== undefined && args !== null) msg.arguments = args;
-    if (payload !== undefined && payload !== null) msg.payload = payload;
-    if (tenant !== undefined && tenant !== null) msg.tenant = tenant;
-    if (source !== undefined && source !== null) msg.source = source;
+    let msg = Map({ type });
+    if (target !== undefined) msg = msg.set('target', target);
+    if (signal !== undefined) msg = msg.set('signal', signal);
+    if (args !== undefined) msg = msg.set('arguments', args);
+    if (payload !== undefined) msg = msg.set('payload', payload);
+    if (tenant !== undefined) msg = msg.set('tenant', tenant);
+    if (source !== undefined) msg = msg.set('source', source);
     return this.requestObj(msg);
   }
 
   requestObj(msgObj) {
     const callbackId = this.newCallbackId();
-    const msgObjToSend = msgObj;
-    msgObjToSend.mid = callbackId;
+    const msgObjToSend = msgObj.set('mid', callbackId);
 
     return new Promise((resolve, reject) => {
-      this.sendObj(msgObj)
+      this.sendObj(msgObjToSend)
         .then(() => {
-          this.reqCallbacks[callbackId] = {
+          this.reqCallbacks = this.reqCallbacks.set(callbackId, Map({
             time: new Date(),
             resolve,
             timeoutPromise: setTimeout(() => {
-              if (this.reqCallbacks.hasOwnProperty(callbackId)) {
-                delete this.reqCallbacks[callbackId];
-                reject(defaults.timeoutErrorMessage);
+              if (this.reqCallbacks.has(callbackId)) {
+                this.reqCallbacks = this.reqCallbacks.delete(callbackId);
+                reject(defaults.get('timeoutErrorMessage'));
               }
-            }, this.timeoutOnRequests || defaults.timeoutOnRequests),
-          };
+            }, this.timeoutOnRequests || defaults.get('timeoutOnRequests')),
+          }));
         })
         .catch((reason) => reject(reason));
     });
@@ -171,7 +174,7 @@ export class ArchmageSocket {
 
   newCallbackId() {
     this.currentCallbackId += 1;
-    if (this.currentCallbackId > defaults.midMax) {
+    if (this.currentCallbackId > defaults.get('midMax')) {
       this.currentCallbackId = 0;
     }
     return String(this.currentCallbackId);
@@ -183,7 +186,7 @@ export class ArchmageSocket {
     let errorReason = '';
 
     try {
-      msgObj = tiip.unpack(msg.data);
+      msgObj = Map(tiip.unpack(msg.data));
       // console.log('Msg received: ', msgObj);
     } catch (err) {
       isTiip = false; // non-tiip messge
@@ -191,32 +194,32 @@ export class ArchmageSocket {
     }
 
     if (isTiip) {
-      switch (msgObj.type) {
+      switch (msgObj.get('type')) {
         case 'rep': {
           // If an object exists with msgObj.mid in reqCallbacks, resolve it
-          if (this.reqCallbacks.hasOwnProperty(msgObj.mid)) {
-            const reqCallbackObj = this.reqCallbacks[msgObj.mid];
+          if (this.reqCallbacks.has(msgObj.get('mid'))) {
+            const reqCallbackObj = this.reqCallbacks.get(msgObj.get('mid'));
             clearTimeout(reqCallbackObj.timeoutPromise);
             reqCallbackObj.resolve(msgObj);
-            delete this.reqCallbacks[msgObj.mid];
+            this.reqCallbacks = this.reqCallbacks.delete(msgObj.get('mid'));
           } else {
             errorReason = 'No request matched server reply';
           }
           break;
         }
         case 'pub': {
-          if (!Object.keys(this.subCallbacks).some(key => {
+          if (!this.subCallbacks.some(key => {
             // There could be a subchannel, cut the channel
-            if (key === msgObj.source[0].substring(0, key.length)) {
+            if (key === msgObj.get('source').get(0).substring(0, key.length)) {
               // If an object exists in subCallbacks, invoke its cb
-              const subCallbackObj = this.subCallbacks[key];
-              if (subCallbackObj.callback) {
-                subCallbackObj.callback({
+              const subCallbackObj = this.subCallbacks.get(key);
+              if (subCallbackObj.get('callback')) {
+                subCallbackObj.get('callback')(Map({
                   timestamp: msgObj.timestamp,
                   source: msgObj.source,
                   signal: msgObj.signal,
                   payload: msgObj.payload,
-                });
+                }));
               }
               return true; // exit loop
             }
@@ -234,7 +237,7 @@ export class ArchmageSocket {
     }
     if (this.receiveCallback) {
       if (isTiip) {
-        this.receiveCallback(msg.data, errorReason || false, msgObj.type);
+        this.receiveCallback(msgObj, errorReason || false, msgObj.get('type'));
       } else {
         this.receiveCallback(msg.data);
       }

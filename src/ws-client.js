@@ -1,15 +1,15 @@
 import Promise from 'bluebird';
-import _ from 'lodash';
+import { Map, List } from 'immutable';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
-export const readyStates = {
+export const readyStates = Map({
   CONNECTING: 0,
   OPEN: 1,
   CLOSING: 2,
   CLOSED: 3,
   RECONNECT_ABORTED: 4,
-};
+});
 
 function createWebSocket(url, protocols) {
   const urlOk = /wss?:\/\//.exec(url);
@@ -23,54 +23,52 @@ function createWebSocket(url, protocols) {
 export default class WsClient {
 
   // PUBLIC /////////////////////////////////////
-  constructor(url, protocols, options) {
+  constructor(url, protocols, options = {}) {
     this.protocols = protocols;
     this.url = url;
-    this.timeoutStart = options && options.timeoutStart || 300;
-    this.timeoutMax = options && options.timeoutMax || 2 * 60 * 1000;
-    this.reconnectIfNotNormalClose = options && options.reconnectIfNotNormalClose;
+    this.timeoutStart = options.timeoutStart || 300;
+    this.timeoutMax = options.timeoutMax || 2 * 60 * 1000;
+    this.reconnectIfNotNormalClose = options.reconnectIfNotNormalClose;
 
     this.isEncrypted = /(wss)/i.test(this.url);
     this.reconnectAttempts = 0;
-    this.sendQueue = [];
-    this.onOpenCallbacks = [];
-    this.onMessageCallbacks = [];
-    this.onErrorCallbacks = [];
-    this.onCloseCallbacks = [];
+    this.sendQueue = List();
+    this.onOpenCallbacks = List();
+    this.onCloseCallbacks = List();
+    this.onErrorCallbacks = List();
+    this.onMessageCallbacks = List();
 
     this.connect();
   }
 
   onOpen(cb) {
-    this.onOpenCallbacks.push(cb);
+    this.onOpenCallbacks = this.onOpenCallbacks.push(cb);
     return this;
   }
 
   onClose(cb) {
-    this.onCloseCallbacks.push(cb);
+    this.onCloseCallbacks = this.onCloseCallbacks.push(cb);
     return this;
   }
 
   onError(cb) {
-    this.onErrorCallbacks.push(cb);
+    this.onErrorCallbacks = this.onErrorCallbacks.push(cb);
     return this;
   }
 
   onMessage(cb) {
-    if (!_.isFunction(cb)) {
-      throw new Error('Callback must be a function');
-    }
-    this.onMessageCallbacks.push({ fn: cb });
+    this.onMessageCallbacks = this.onMessageCallbacks.push(cb);
     return this;
   }
 
   send(message) {
+    const self = this;
     return new Promise((resolve, reject) => {
-      if (this.readyState === readyStates.RECONNECT_ABORTED) {
+      if (self.socket.readyState === readyStates.get('RECONNECT_ABORTED')) {
         reject('Socket connection has been closed');
       } else {
-        this.sendQueue.push({ message, resolve });
-        this.fireQueue();
+        self.sendQueue = self.sendQueue.push({ message, resolve });
+        self.fireQueue();
       }
     });
   }
@@ -95,7 +93,7 @@ export default class WsClient {
   // /////////////////////////////////////////////
 
   connect(force) {
-    if (force || !this.socket || this.socket.readyState !== readyStates.OPEN) {
+    if (force || !this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
       this.socket = createWebSocket(this.url, this.protocols);
       this.socket.onmessage = ::this.onMessageHandler;
       this.socket.onopen = ::this.onOpenHandler;
@@ -106,9 +104,10 @@ export default class WsClient {
   }
 
   fireQueue() {
-    while (this.sendQueue.length && this.socket.readyState === readyStates.OPEN) {
-      const data = this.sendQueue.shift();
-      this.socket.send(_.isString(data.message)
+    while (this.sendQueue.size && this.socket.readyState === readyStates.get('OPEN')) {
+      const data = this.sendQueue.first();
+      this.sendQueue = this.sendQueue.shift();
+      this.socket.send(typeof data.message === 'string'
         ? data.message
         : JSON.stringify(data.message)
       );
@@ -121,13 +120,13 @@ export default class WsClient {
 
   onOpenHandler(event) {
     this.reconnectAttempts = 0;
-    this.onOpenCallbacks.forEach(cb => cb.call(this, event));
+    this.onOpenCallbacks.forEach(cb => cb(event));
     // this.notifyOpenCallbacks(event);
     this.fireQueue();
   }
 
   onCloseHandler(event) {
-    this.onCloseCallbacks.forEach(cb => cb.call(this, event));
+    this.onCloseCallbacks.forEach(cb => cb(event));
     const notNormalReconnect = this.reconnectIfNotNormalClose && event.code !== closeCode;
     if (notNormalReconnect || event.code === reconnectableStatus) {
       this.reconnect();
@@ -135,11 +134,11 @@ export default class WsClient {
   }
 
   onErrorHandler(event) {
-    this.onErrorCallbacks.forEach(cb => cb.call(this, event));
+    this.onErrorCallbacks.forEach(cb => cb(event));
   }
 
   onMessageHandler(message) {
-    this.onMessageCallbacks.forEach(cb => cb.fn(message));
+    this.onMessageCallbacks.forEach(cb => cb(message));
   }
 
   getBackoffDelay(attempt) {
