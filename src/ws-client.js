@@ -1,6 +1,5 @@
 import Promise from 'bluebird';
 import { Map, List } from 'immutable';
-import { w3cwebsocket } from 'websocket';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
@@ -12,12 +11,12 @@ export const readyStates = Map({
   RECONNECT_ABORTED: 4,
 });
 
-function createWebSocket(url, protocols) {
+function createWebSocket(url, protocols, customWsClient) {
   const urlOk = /wss?:\/\//.exec(url);
   if (!urlOk) {
     throw new Error('Invalid url provided');
   }
-  const Socket = w3cwebsocket || window.WebSocket || window.MozWebSocket;
+  const Socket = customWsClient || window.WebSocket || window.MozWebSocket;
   return new Socket(url, protocols || undefined);
 }
 
@@ -30,6 +29,7 @@ export default class WsClient {
     this.timeoutStart = options.timeoutStart || 300;
     this.timeoutMax = options.timeoutMax || 2 * 60 * 1000;
     this.reconnectIfNotNormalClose = options.reconnectIfNotNormalClose;
+    this.customWsClient = options.customWsClient;
 
     this.isEncrypted = /(wss)/i.test(this.url);
     this.reconnectAttempts = 0;
@@ -44,7 +44,7 @@ export default class WsClient {
 
   connect(force) {
     if (force || !this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
-      this.socket = createWebSocket(this.url, this.protocols);
+      this.socket = createWebSocket(this.url, this.protocols, this.customWsClient);
       this.socket.onmessage = ::this.onMessageHandler;
       this.socket.onopen = ::this.onOpenHandler;
       this.socket.onerror = ::this.onErrorHandler;
