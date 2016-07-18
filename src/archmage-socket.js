@@ -35,6 +35,7 @@ export class ArchmageSocket {
       reconnectIfNotNormalClose: true,
       ...options,
     });
+    return this;
   }
 
   setOptions(options) {
@@ -112,7 +113,7 @@ export class ArchmageSocket {
   }
 
   isOpen() {
-    return this.ws.socket.readyState === readyStates.OPEN;
+    return this.ws.socket.readyState === readyStates.get('OPEN');
   }
 
   send(type, target, signal, args, payload, tenant, source, ok) {
