@@ -1,5 +1,6 @@
 import Promise from 'bluebird';
 import { Map, List } from 'immutable';
+import { w3cwebsocket } from 'websocket';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
@@ -16,7 +17,7 @@ function createWebSocket(url, protocols) {
   if (!urlOk) {
     throw new Error('Invalid url provided');
   }
-  const Socket = window.WebSocket || window.MozWebSocket;
+  const Socket = w3cwebsocket || window.WebSocket || window.MozWebSocket;
   return new Socket(url, protocols || undefined);
 }
 
@@ -24,8 +25,8 @@ export default class WsClient {
 
   // PUBLIC /////////////////////////////////////
   constructor(url, protocols, options = {}) {
-    this.protocols = protocols;
     this.url = url;
+    this.protocols = protocols;
     this.timeoutStart = options.timeoutStart || 300;
     this.timeoutMax = options.timeoutMax || 2 * 60 * 1000;
     this.reconnectIfNotNormalClose = options.reconnectIfNotNormalClose;
@@ -38,7 +39,18 @@ export default class WsClient {
     this.onErrorCallbacks = List();
     this.onMessageCallbacks = List();
 
-    this.connect();
+    // this.connect();
+  }
+
+  connect(force) {
+    if (force || !this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
+      this.socket = createWebSocket(this.url, this.protocols);
+      this.socket.onmessage = ::this.onMessageHandler;
+      this.socket.onopen = ::this.onOpenHandler;
+      this.socket.onerror = ::this.onErrorHandler;
+      this.socket.onclose = ::this.onCloseHandler;
+    }
+    return this;
   }
 
   onOpen(cb) {
@@ -91,17 +103,6 @@ export default class WsClient {
   }
 
   // /////////////////////////////////////////////
-
-  connect(force) {
-    if (force || !this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
-      this.socket = createWebSocket(this.url, this.protocols);
-      this.socket.onmessage = ::this.onMessageHandler;
-      this.socket.onopen = ::this.onOpenHandler;
-      this.socket.onerror = ::this.onErrorHandler;
-      this.socket.onclose = ::this.onCloseHandler;
-    }
-    return this;
-  }
 
   fireQueue() {
     while (this.sendQueue.size && this.socket.readyState === readyStates.get('OPEN')) {

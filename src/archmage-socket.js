@@ -42,6 +42,10 @@ export class ArchmageSocket {
 
   // ------ INTERFACE IMPLEMENTATION ------ //
 
+  connect() {
+    this.ws.connect();
+  }
+
   init(userId, passwordHash, tenant, target, signal, source, extraArgs) {
     let args = Map({ id: userId, password: passwordHash });
     if (extraArgs) {
@@ -203,8 +207,8 @@ export class ArchmageSocket {
           // If an object exists with msgObj.mid in reqCallbacks, resolve it
           if (this.reqCallbacks.has(msgObj.get('mid'))) {
             const reqCallbackObj = this.reqCallbacks.get(msgObj.get('mid'));
-            clearTimeout(reqCallbackObj.timeoutPromise);
-            reqCallbackObj.resolve(msgObj);
+            clearTimeout(reqCallbackObj.get('timeoutPromise'));
+            reqCallbackObj.get('resolve')(msgObj);
             this.reqCallbacks = this.reqCallbacks.delete(msgObj.get('mid'));
           } else {
             errorReason = 'No request matched server reply';

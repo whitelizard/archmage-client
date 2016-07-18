@@ -23,13 +23,14 @@ export default class ArchmageSession {
     } else {
       this.setOptions(options);
     }
-  }
-
-  connect(url, protocols, options = {}) {
-    this.setOptions(options);
     this.socket = new ArchmageSocket(url, protocols, options);
     this.socket.ws.onOpen(::this.onOpen);
     this.socket.ws.onClose(::this.onClose);
+  }
+
+  connect() {
+    // this.setOptions(options);
+    this.socket.connect();
   }
 
   setOptions(options) {
