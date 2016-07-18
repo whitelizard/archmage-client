@@ -18,19 +18,21 @@ export default class ArchmageSession {
     this.hasBeenConnected = false;
     this.authObj = undefined;
     this.user = undefined;
+
+    this.socket = new ArchmageSocket(url, protocols, options);
+    this.socket.ws.onOpen(::this.onOpen);
+    this.socket.ws.onClose(::this.onClose);
+
     if (url) {
       this.connect(url, protocols, options);
     } else {
       this.setOptions(options);
     }
-    this.socket = new ArchmageSocket(url, protocols, options);
-    this.socket.ws.onOpen(::this.onOpen);
-    this.socket.ws.onClose(::this.onClose);
   }
 
-  connect() {
-    // this.setOptions(options);
-    this.socket.connect();
+  connect(url, protocols, options = {}) {
+    this.setOptions(options);
+    this.socket.connect(url, protocols, options);
   }
 
   setOptions(options) {

@@ -15,35 +15,33 @@ export class ArchmageSocket {
   // ------ SETUP ------ //
 
   constructor(url, protocols, options = {}) {
-    const {
-      onSend,
-      onSendFail,
-      onReceive,
-      timeoutOnRequests,
-      ...rest,
-    } = options;
-
-    this.sendCallback = onSend;
-    this.sendFailCallback = onSendFail;
-    this.receiveCallback = onReceive;
-    this.timeoutOnRequests = timeoutOnRequests;
-
     this.currentCallbackId = 0;
     this.reqCallbacks = Map();
     this.subCallbacks = Map();
+    this.setOptions(options);
 
-    const wsClientOptions = {
+    this.ws = new WsClient(url, protocols, {
       reconnectIfNotNormalClose: true,
-      ...rest,
-    };
-    this.ws = new WsClient(url, protocols, wsClientOptions);
+      ...options,
+    });
     this.ws.onMessage(::this.onMessage);
   }
 
   // ------ INTERFACE IMPLEMENTATION ------ //
 
-  connect() {
-    this.ws.connect();
+  connect(url, protocols, options = {}) {
+    this.setOptions(options);
+    this.ws.connect(url, protocols, {
+      reconnectIfNotNormalClose: true,
+      ...options,
+    });
+  }
+
+  setOptions(options) {
+    this.sendCallback = options.onSend || this.sendCallback;
+    this.sendFailCallback = options.onSendFail || this.sendFailCallback;
+    this.receiveCallback = options.onReceive || this.receiveCallback;
+    this.timeoutOnRequests = options.timeoutOnRequests || this.timeoutOnRequests;
   }
 
   init(userId, passwordHash, tenant, target, signal, source, extraArgs) {

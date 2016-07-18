@@ -3,6 +3,8 @@ import { Map, List } from 'immutable';
 
 const closeCode = 1000;
 const reconnectableStatus = 4000;
+const timeoutStart = 300;
+const timeoutMax = 2 * 60 * 1000;
 export const readyStates = Map({
   CONNECTING: 0,
   OPEN: 1,
@@ -24,26 +26,18 @@ export default class WsClient {
 
   // PUBLIC /////////////////////////////////////
   constructor(url, protocols, options = {}) {
-    this.url = url;
-    this.protocols = protocols;
-    this.timeoutStart = options.timeoutStart || 300;
-    this.timeoutMax = options.timeoutMax || 2 * 60 * 1000;
-    this.reconnectIfNotNormalClose = options.reconnectIfNotNormalClose;
-    this.customWsClient = options.customWsClient;
-
-    this.isEncrypted = /(wss)/i.test(this.url);
+    this.init(url, protocols, options);
     this.reconnectAttempts = 0;
     this.sendQueue = List();
     this.onOpenCallbacks = List();
     this.onCloseCallbacks = List();
     this.onErrorCallbacks = List();
     this.onMessageCallbacks = List();
-
-    // this.connect();
   }
 
-  connect(force) {
-    if (force || !this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
+  connect(url, protocols, options) {
+    this.init(url, protocols, options);
+    if (!this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
       this.socket = createWebSocket(this.url, this.protocols, this.customWsClient);
       this.socket.onmessage = ::this.onMessageHandler;
       this.socket.onopen = ::this.onOpenHandler;
@@ -51,6 +45,18 @@ export default class WsClient {
       this.socket.onclose = ::this.onCloseHandler;
     }
     return this;
+  }
+
+  init(url, protocols, options) {
+    this.url = url;
+    this.protocols = protocols;
+    this.isEncrypted = /^(wss:)/i.test(this.url);
+
+    this.timeoutStart = options.timeoutStart || this.timeoutStart || timeoutStart;
+    this.timeoutMax = options.timeoutMax || this.timeoutMax || timeoutMax;
+    this.reconnectIfNotNormalClose = options.reconnectIfNotNormalClose ||
+      this.reconnectIfNotNormalClose;
+    this.customWsClient = options.customWsClient || this.customWsClient;
   }
 
   onOpen(cb) {
