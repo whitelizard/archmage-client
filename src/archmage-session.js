@@ -1,4 +1,5 @@
 import { ArchmageSocket } from './archmage-socket';
+import { fromJS } from 'immutable';
 import Promise from 'bluebird';
 import crypto from 'crypto';
 
@@ -51,13 +52,14 @@ export default class ArchmageSession {
 
   auth(userId, password, tenant, target, signal, source, payloadExtra) {
     const passwordHash = this.hashify(password);
-    const reqInitObj = Map({
+    const reqInitObj = fromJS({
       userId, passwordHash, tenant, target, signal, source, payloadExtra,
     });
     return this.socket.init(userId, passwordHash, tenant, target, signal, source, payloadExtra)
       .then(msgObj => {
         if (!this.handleInitReply(msgObj, reqInitObj)) {
-          const reason = `${msgObj.signal}: ${msgObj.payload && msgObj.payload[0]}`;
+          const rid = msgObj.get('payload') && msgObj.get('payload').get(0);
+          const reason = `${msgObj.get('signal')}: ${rid}`;
           Promise.reject(reason);
         }
         return msgObj;
@@ -141,16 +143,16 @@ export default class ArchmageSession {
   }
 
   handleInitReply(msgObj, reqInitObj) {
-    console.log('Login reply: ', msgObj);
-    this.authenticated = msgObj.ok;
+    console.log('Login reply: ', msgObj.toJS());
+    this.authenticated = msgObj.get('ok');
 
-    if (msgObj.ok) {
+    if (this.authenticated) {
       this.authObj = reqInitObj.set('rid', undefined);
-      if (msgObj.payload && msgObj.payload[0]) {
-        this.authObj = reqInitObj.set('rid', msgObj.payload[0]);
+      if (msgObj.get('payload') && msgObj.get('payload').get(0)) {
+        this.authObj = reqInitObj.set('rid', msgObj.get('payload').get(0));
       }
     }
-    return msgObj.ok;
+    return this.authenticated;
   }
 
   // BELOW NEEDS CONVERSION!
@@ -173,7 +175,7 @@ export default class ArchmageSession {
         this.authObj.get('payloadExtra'),
       )
         .then(msgObj => {
-          this.authenticated = msgObj.ok;
+          this.authenticated = msgObj.get('ok');
           console.log('Re-login attempt was successful');
           if (this.reloginCallback) this.reloginCallback(msgObj);
         })

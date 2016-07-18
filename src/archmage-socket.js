@@ -1,7 +1,7 @@
 import WsClient, { readyStates } from './ws-client';
 import * as tiip from 'jstiip';
 import Promise from 'bluebird';
-import { Map } from 'immutable';
+import { Map, fromJS, Iterable } from 'immutable';
 
 const defaults = Map({
   initTarget: 'TiipController',
@@ -29,8 +29,8 @@ export class ArchmageSocket {
     this.timeoutOnRequests = timeoutOnRequests;
 
     this.currentCallbackId = 0;
-    this.reqCallbacks = Map({});
-    this.subCallbacks = Map({});
+    this.reqCallbacks = Map();
+    this.subCallbacks = Map();
 
     const wsClientOptions = {
       reconnectIfNotNormalClose: true,
@@ -69,14 +69,13 @@ export class ArchmageSocket {
     The DataChannel rid as input is not the same as channel received in reply in payload.
     The first is the id against the GUI and the second agains the server.
     */
-
     return this.request(
       'sub', undefined, signal, args, payload, tenant, source
     ).then(tiipMsg => {
-      if (tiipMsg.ok && tiipMsg.payload) {
-        if (tiipMsg.payload[0]) {
+      if (tiipMsg.get('ok') && tiipMsg.get('payload')) {
+        if (tiipMsg.get('payload').get(0)) {
           // Only support for subscription to one channel at a time
-          this.subCallbacks = this.subCallbacks.set(tiipMsg.payload[0], Map({
+          this.subCallbacks = this.subCallbacks.set(tiipMsg.get('payload').get(0), Map({
             callback,
             rid: args.get('rid'),
           }));
@@ -116,7 +115,12 @@ export class ArchmageSocket {
 
   send(type, target, signal, args, payload, tenant, source, ok) {
     const tiipMsg = tiip.pack(
-      type, target, signal, args, payload, undefined, tenant, source, undefined, ok
+      type, target, signal,
+      Iterable.isIterable(args) ? args.toJS() : args,
+      Iterable.isIterable(payload) ? payload.toJS() : payload,
+      undefined, tenant,
+      Iterable.isIterable(source) ? source.toJS() : source,
+      undefined, ok
     );
     return this.sendRaw(tiipMsg);
   }
@@ -141,10 +145,10 @@ export class ArchmageSocket {
     let msg = Map({ type });
     if (target !== undefined) msg = msg.set('target', target);
     if (signal !== undefined) msg = msg.set('signal', signal);
-    if (args !== undefined) msg = msg.set('arguments', args);
-    if (payload !== undefined) msg = msg.set('payload', payload);
+    if (args !== undefined) msg = msg.set('arguments', fromJS(args));
+    if (payload !== undefined) msg = msg.set('payload', fromJS(payload));
     if (tenant !== undefined) msg = msg.set('tenant', tenant);
-    if (source !== undefined) msg = msg.set('source', source);
+    if (source !== undefined) msg = msg.set('source', fromJS(source));
     return this.requestObj(msg);
   }
 
@@ -155,7 +159,7 @@ export class ArchmageSocket {
     return new Promise((resolve, reject) => {
       this.sendObj(msgObjToSend)
         .then(() => {
-          this.reqCallbacks = this.reqCallbacks.set(callbackId, Map({
+          this.reqCallbacks = this.reqCallbacks.set(callbackId, fromJS({
             time: new Date(),
             resolve,
             timeoutPromise: setTimeout(() => {
@@ -186,7 +190,7 @@ export class ArchmageSocket {
     let errorReason = '';
 
     try {
-      msgObj = Map(tiip.unpack(msg.data));
+      msgObj = fromJS(tiip.unpack(msg.data));
       // console.log('Msg received: ', msgObj);
     } catch (err) {
       isTiip = false; // non-tiip messge
@@ -214,11 +218,11 @@ export class ArchmageSocket {
               // If an object exists in subCallbacks, invoke its cb
               const subCallbackObj = this.subCallbacks.get(key);
               if (subCallbackObj.get('callback')) {
-                subCallbackObj.get('callback')(Map({
-                  timestamp: msgObj.timestamp,
-                  source: msgObj.source,
-                  signal: msgObj.signal,
-                  payload: msgObj.payload,
+                subCallbackObj.get('callback')(fromJS({
+                  timestamp: msgObj.get('timestamp'),
+                  source: msgObj.get('source'),
+                  signal: msgObj.get('signal'),
+                  payload: msgObj.get('payload'),
                 }));
               }
               return true; // exit loop
