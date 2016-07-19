@@ -9,11 +9,6 @@ import crypto from 'crypto';
 //   confUpdateSignal: 'confUpdate',
 // };
 
-// TODO: new jstiip with new channel field, add support for all socket functions
-// Update also to use channel instead of source in onMessage
-// Add list of callbacks to sub, instead of just one for each channel. Perhaps not. Problems with unsub
-// Add subChannel as argument to sub/pub/unsub
-
 export default class ArchmageSession {
 
   // ------ SETUP ------ //
@@ -58,12 +53,12 @@ export default class ArchmageSession {
     return false;
   }
 
-  auth(userId, password, tenant, target, signal, source, payloadExtra) {
+  auth(userId, password, tenant, target, signal, args) {
     const passwordHash = this.hashify(password);
     const reqInitObj = fromJS({
-      userId, passwordHash, tenant, target, signal, source, payloadExtra,
+      userId, passwordHash, tenant, target, signal, args,
     });
-    return this.socket.init(userId, passwordHash, tenant, target, signal, source, payloadExtra)
+    return this.socket.init(userId, passwordHash, tenant, target, signal, args)
       .then(msgObj => {
         if (!this.handleInitReply(msgObj, reqInitObj)) {
           const rid = msgObj.get('payload') && msgObj.get('payload').get(0);

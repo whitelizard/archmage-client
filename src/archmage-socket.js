@@ -1,7 +1,7 @@
 import WsClient, { readyStates } from './ws-client';
 import * as tiip from 'jstiip';
 import Promise from 'bluebird';
-import { Map, fromJS, Iterable } from 'immutable';
+import { Map, fromJS, Iterable, OrderedSet } from 'immutable';
 
 const defaults = Map({
   initTarget: 'TiipController',
@@ -45,13 +45,13 @@ export class ArchmageSocket {
     this.timeoutOnRequests = options.timeoutOnRequests || this.timeoutOnRequests;
   }
 
-  init(userId, passwordHash, tenant, target, signal, source, extraArgs) {
-    let args = Map({ id: userId, password: passwordHash });
-    if (extraArgs) {
-      args = args.merge(extraArgs);
+  init(userId, passwordHash, tenant, target, signal, args) {
+    let argumentz = Map({ id: userId, password: passwordHash });
+    if (args) {
+      argumentz = args.merge(argumentz);
     }
     return this.request(
-      'init', target || defaults.get('initTarget'), signal, args, undefined, tenant, source
+      'init', target || defaults.get('initTarget'), signal, argumentz, undefined, tenant
     );
   }
 
@@ -62,53 +62,60 @@ export class ArchmageSocket {
     return this.ws.close(force);
   }
 
-  req(target, signal, args, payload, source, tenant) {
-    return this.request('req', target, signal, args, payload, tenant, source);
+  req(target, signal, args, tenant) {
+    return this.request('req', target, signal, args, undefined, tenant);
   }
 
-  sub(callback, signal, args, payload, target, source, tenant) {
+  sub(callback, channel, subChannel, target, tenant, args) {
     /**
     args: Map:{rid: <DataChannel rid>}
     The DataChannel rid as input is not the same as channel received in reply in payload.
     The first is the id against the GUI and the second agains the server.
+
+    channel, subChannel, target, tenant is the address to use as (secondary) key
     */
+    const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
+    let argumentz = Map({ subChannel });
+    if (args) argumentz = args.merge(argumentz);
+
     return this.request(
-      'sub', undefined, signal, args, payload, tenant, source
+      'sub', target, undefined, argumentz, undefined, tenant, undefined, channel
     ).then(tiipMsg => {
-      if (tiipMsg.get('ok') && tiipMsg.get('payload')) {
-        if (tiipMsg.get('payload').get(0)) {
-          // Only support for subscription to one channel at a time
-          this.subCallbacks = this.subCallbacks.set(tiipMsg.get('payload').get(0), Map({
-            callback,
-            rid: args.get('rid'),
-          }));
-        }
+      if (tiipMsg.get('ok') && tiipMsg.has('channel')) {
+        // Only support for subscription to one channel at a time
+        this.subCallbacks = this.subCallbacks.set(tiipMsg.get('channel'), Map({
+          callback,
+          key: secondaryKey,
+        }));
       }
       return tiipMsg;
     });
   }
 
-  unsub(signal, args, payload, target, source, tenant) {
-    let channelKey;
-    this.subCallbacks.some(key => {
-      if (args.get('rid') === this.subCallbacks.get(key).get('rid')) {
-        channelKey = key;
-        this.subCallbacks = this.subCallbacks.delete(key);
+  unsub(channel, subChannel, target, tenant, args) {
+    const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
+    let fullChannel;
+    this.subCallbacks.some(ch => {
+      if (secondaryKey === this.subCallbacks.getIn([ch, 'key'])) {
+        fullChannel = ch;
+        this.subCallbacks = this.subCallbacks.delete(ch);
         return true; // exit loop
       }
       return false;
     }, this);
-    if (channelKey) {
+    if (fullChannel) {
       return this.send('unsub',
-        undefined, signal, args, payload, tenant, source
+        undefined, undefined, args, undefined, undefined, undefined, channel
       );
     }
     return Promise.resolve();
   }
 
-  pub(signal, payload, target, source, args, tenant) {
+  pub(payload, channel, subChannel, signal, source, tenant, args) {
+    let argumentz = Map({ subChannel });
+    if (args) argumentz = args.merge(argumentz);
     return this.send('pub',
-      undefined, signal, args, payload, tenant, source
+      undefined, signal, argumentz, payload, tenant, source, channel
     );
   }
 
@@ -116,14 +123,14 @@ export class ArchmageSocket {
     return this.ws.socket.readyState === readyStates.get('OPEN');
   }
 
-  send(type, target, signal, args, payload, tenant, source, ok) {
+  send(type, target, signal, args, payload, tenant, source, channel) {
     const tiipMsg = tiip.pack(
       type, target, signal,
       Iterable.isIterable(args) ? args.toJS() : args,
       Iterable.isIterable(payload) ? payload.toJS() : payload,
       undefined, tenant,
       Iterable.isIterable(source) ? source.toJS() : source,
-      undefined, ok
+      channel
     );
     return this.sendRaw(tiipMsg);
   }
@@ -144,7 +151,7 @@ export class ArchmageSocket {
       });
   }
 
-  request(type, target, signal, args, payload, tenant, source) {
+  request(type, target, signal, args, payload, tenant, source, channel) {
     let msg = Map({ type });
     if (target !== undefined) msg = msg.set('target', target);
     if (signal !== undefined) msg = msg.set('signal', signal);
@@ -152,6 +159,7 @@ export class ArchmageSocket {
     if (payload !== undefined) msg = msg.set('payload', fromJS(payload));
     if (tenant !== undefined) msg = msg.set('tenant', tenant);
     if (source !== undefined) msg = msg.set('source', fromJS(source));
+    if (channel !== undefined) msg = msg.set('channel', channel);
     return this.requestObj(msg);
   }
 
@@ -215,22 +223,19 @@ export class ArchmageSocket {
           break;
         }
         case 'pub': {
-          if (!this.subCallbacks.some(key => {
+          if (!this.subCallbacks.forEach(key => {
             // There could be a subchannel, cut the channel
-            if (key === msgObj.get('source').get(0).substring(0, key.length)) {
+            const channel = msgObj.get('channel');
+            if (key === channel.substring(0, key.length)) {
               // If an object exists in subCallbacks, invoke its cb
               const subCallbackObj = this.subCallbacks.get(key);
               if (subCallbackObj.get('callback')) {
-                subCallbackObj.get('callback')(fromJS({
-                  timestamp: msgObj.get('timestamp'),
-                  source: msgObj.get('source'),
-                  signal: msgObj.get('signal'),
-                  payload: msgObj.get('payload'),
-                }));
+                subCallbackObj.get('callback')(
+                  msgObj.filter((v, field) =>
+                    Set.of('timestamp', 'source', 'signal', 'payload').has(field))
+                );
               }
-              return true; // exit loop
             }
-            return false;
           })) {
             // No key found
             errorReason = 'No subscription for publication from server';
