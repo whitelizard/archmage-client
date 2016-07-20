@@ -28,6 +28,7 @@ export default class WsClient {
   constructor(url, protocols, options = {}) {
     this.init(url, protocols, options);
     this.reconnectAttempts = 0;
+    this.manualClose = false;
     this.sendQueue = List();
     this.onOpenCallbacks = List();
     this.onCloseCallbacks = List();
@@ -95,6 +96,7 @@ export default class WsClient {
     if (force || !this.socket.bufferedAmount) {
       if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
       this.socket.close();
+      this.manualClose = true;
     }
     return this;
   }
@@ -127,6 +129,7 @@ export default class WsClient {
 
   onOpenHandler(event) {
     this.reconnectAttempts = 0;
+    this.manualClose = false;
     this.onOpenCallbacks.forEach(cb => cb(event));
     // this.notifyOpenCallbacks(event);
     this.fireQueue();
@@ -134,7 +137,8 @@ export default class WsClient {
 
   onCloseHandler(event) {
     this.onCloseCallbacks.forEach(cb => cb(event));
-    const notNormalReconnect = this.reconnectIfNotNormalClose && event.code !== closeCode;
+    const notNormalReconnect = this.reconnectIfNotNormalClose && !this.manualClose;
+    // && event.code !== closeCode
     if (notNormalReconnect || event.code === reconnectableStatus) {
       this.reconnect();
     }

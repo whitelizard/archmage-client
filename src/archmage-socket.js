@@ -1,3 +1,6 @@
+/** @module archmage-socket
+ * @description High level Socket class agains an ARCHMAGE server.
+ */
 import WsClient, { readyStates } from './ws-client';
 import * as tiip from 'jstiip';
 import Promise from 'bluebird';
@@ -12,8 +15,13 @@ const defaults = Map({
 
 export class ArchmageSocket {
 
-  // ------ SETUP ------ //
-
+  /**
+   * ArchmageSocket constructor. Does not connect.
+   * @param  {object} url Websocket URL
+   * @param  {string} protocols Protocols object for the browser WebSocket API
+   * @param  {string} options Options object {onSend, onSendFail, onReceive, timeoutOnRequests}
+   * @return {object}   New ArchmageSocket instance
+   */
   constructor(url, protocols, options = {}) {
     this.currentCallbackId = 0;
     this.reqCallbacks = Map();
@@ -28,7 +36,13 @@ export class ArchmageSocket {
   }
 
   // ------ INTERFACE IMPLEMENTATION ------ //
-
+  /**
+   * Connect the socket. Will handle same arguments as the constructor.
+   * @param  {object} url Websocket URL
+   * @param  {string} protocols Protocols object for the browser WebSocket API
+   * @param  {string} options Options object {onSend, onSendFail, onReceive, timeoutOnRequests}
+   * @return {object}   The whole Socket (this)
+   */
   connect(url, protocols, options = {}) {
     this.setOptions(options);
     this.ws.connect(url, protocols, {
@@ -38,6 +52,12 @@ export class ArchmageSocket {
     return this;
   }
 
+  /**
+   * Operation IDs for a device
+   * @param  {object} sensorSettings Map of devices sesors settings
+   * @param  {string} deviceId
+   * @return {array}                 Array of device's sensor operations IDs
+   */
   setOptions(options) {
     this.sendCallback = options.onSend || this.sendCallback;
     this.sendFailCallback = options.onSendFail || this.sendFailCallback;
@@ -69,10 +89,6 @@ export class ArchmageSocket {
   sub(callback, channel, subChannel, target, tenant, args) {
     /**
     args: Map:{rid: <DataChannel rid>}
-    The DataChannel rid as input is not the same as channel received in reply in payload.
-    The first is the id against the GUI and the second agains the server.
-
-    channel, subChannel, target, tenant is the address to use as (secondary) key
     */
     const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
     let argumentz = Map({ subChannel });
