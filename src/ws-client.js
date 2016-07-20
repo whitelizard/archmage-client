@@ -48,8 +48,8 @@ export default class WsClient {
   }
 
   init(url, protocols, options) {
-    this.url = url;
-    this.protocols = protocols;
+    this.url = url || this.url;
+    this.protocols = protocols || this.protocols;
     this.isEncrypted = /^(wss:)/i.test(this.url);
 
     this.timeoutStart = options.timeoutStart || this.timeoutStart || timeoutStart;
