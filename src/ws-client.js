@@ -1,7 +1,7 @@
 import Promise from 'bluebird';
 import { Map, List } from 'immutable';
 
-const closeCode = 1000;
+// const closeCode = 1000;
 const reconnectableStatus = 4000;
 const timeoutStart = 300;
 const timeoutMax = 2 * 60 * 1000;
@@ -92,17 +92,22 @@ export default class WsClient {
     });
   }
 
-  close(force) {
-    if (force || !this.socket.bufferedAmount) {
-      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-      this.socket.close();
-      this.manualClose = true;
-    }
+  close() {
+    this.terminate();
+    this.manualClose = true;
     return this;
   }
 
+  terminate() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+    this.socket.close();
+  }
+
   reconnect() {
-    this.close();
+    this.terminate();
     const backoffDelay = this.getBackoffDelay(++this.reconnectAttempts);
     const backoffDelaySeconds = backoffDelay / 1000;
     console.log(`Reconnecting in ${backoffDelaySeconds} seconds`);
