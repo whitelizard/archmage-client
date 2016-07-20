@@ -215,7 +215,7 @@ export class ArchmageSocket {
           break;
         }
         case 'pub': {
-          if (!this.subCallbacks.some(key => {
+          if (!this.subCallbacks.forEach(key => {
             // There could be a subchannel, cut the channel
             if (key === msgObj.get('source').get(0).substring(0, key.length)) {
               // If an object exists in subCallbacks, invoke its cb
