@@ -4,7 +4,7 @@
 import WsClient, { readyStates } from './ws-client';
 import * as tiip from 'jstiip';
 import Promise from 'bluebird';
-import { Map, fromJS, Iterable, OrderedSet } from 'immutable';
+import { Map, Set, fromJS, Iterable, OrderedSet } from 'immutable';
 
 const defaults = Map({
   initTarget: 'TiipController',
@@ -20,7 +20,6 @@ export class ArchmageSocket {
    * @param  {object} url Websocket URL
    * @param  {string} protocols Protocols object for the browser WebSocket API
    * @param  {string} options Options object {onSend, onSendFail, onReceive, timeoutOnRequests}
-   * @return {object}   New ArchmageSocket instance
    */
   constructor(url, protocols, options = {}) {
     this.currentCallbackId = 0;
@@ -35,7 +34,6 @@ export class ArchmageSocket {
     this.ws.onMessage(::this.onMessage);
   }
 
-  // ------ INTERFACE IMPLEMENTATION ------ //
   /**
    * Connect the socket. Will handle same arguments as the constructor.
    * @param  {object} url Websocket URL
@@ -239,7 +237,7 @@ export class ArchmageSocket {
           break;
         }
         case 'pub': {
-          if (!this.subCallbacks.forEach(key => {
+          if (!this.subCallbacks.forEach((value, key) => {
             // There could be a subchannel, cut the channel
             const channel = msgObj.get('channel');
             if (key === channel.substring(0, key.length)) {

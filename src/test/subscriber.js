@@ -1,4 +1,3 @@
-// import { expect } from 'chai';
 import Archmage from '../archmage-session';
 import { w3cwebsocket } from 'websocket';
 
@@ -11,5 +10,4 @@ function gotData(msgObj) {
 }
 
 arch.auth('demo@tieto.com', 'demo', 'websensordemo')
-  .then(() => arch.socket.sub(gotData, '#17:0'))
-  .then(() => arch.socket.pub(['123'], '#17:0', undefined, 'online'));
+  .then(() => arch.socket.sub(gotData, '#17:0'));
