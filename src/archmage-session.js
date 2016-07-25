@@ -1,6 +1,5 @@
 import { ArchmageSocket } from './archmage-socket';
 import { fromJS } from 'immutable';
-import Promise from 'bluebird';
 import crypto from 'crypto';
 
 // const defaults = {
@@ -53,6 +52,15 @@ export default class ArchmageSession {
     return false;
   }
 
+  init() {
+    if (window) {
+      this.authObj = fromJS(JSON.parse(window.localStorage.getItem('authObj')));
+      console.log('authObj from localStorage', this.authObj);
+      return this.cachedInit();
+    }
+    return undefined;
+  }
+
   auth(userId, password, tenant, target, signal, args) {
     const passwordHash = this.hashify(password);
     const reqInitObj = fromJS({
@@ -60,11 +68,8 @@ export default class ArchmageSession {
     });
     return this.socket.init(userId, passwordHash, tenant, target, signal, args)
       .then(msgObj => {
-        if (!this.handleInitReply(msgObj, reqInitObj)) {
-          const rid = msgObj.get('payload') && msgObj.get('payload').get(0);
-          const reason = `${msgObj.get('signal')}: ${rid}`;
-          Promise.reject(reason);
-        }
+        console.log('Login reply: ', msgObj.toJS());
+        this.handleInitReply(msgObj, reqInitObj);
         return msgObj;
       });
   }
@@ -73,69 +78,9 @@ export default class ArchmageSession {
     this.user = undefined;
     this.authenticated = false;
     this.authObj = undefined;
+    window.localStorage.removeItem('authObj');
     return this.socket.kill(true);
   }
-
-  // BELOW NEEDS CONVERSION IF ACTIVATED!
-  // login(userId, password, tenant, pid, signal, source, payloadExtra) {
-  //   const passwordHash = this.hashify(password);
-  //   const defer = getDefer();
-  //
-  //   this.socket.init(userId, passwordHash, tenant, pid, signal, source, payloadExtra)
-  //     .then(initSuccess.bind(this));
-  //
-  //   return defer.promise;
-  //
-  //   // //////
-  //
-  //   function initSuccess(msgObj) {
-  //     if (this.handleInitReply(msgObj, userId, passwordHash)) {
-  //       if (this.authObj.rid) {
-  //         this.readUser(this.authObj.rid)
-  //           .then(defer.resolve, defer.reject);
-  //       } else {
-  //         defer.reject('No rid for user object: '+this.authObj.rid);
-  //       }
-  //     } else {
-  //       defer.reject(msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined'));
-  //     }
-  //   }
-  // }
-  // readUser(rid, pid, signal) {
-  //   const defer = getDefer();
-  //
-  //   pid = pid || this.confAPIName || defaults.confAPIName;
-  //   signal = signal || this.readUserSignal || defaults.readUserSignal;
-  //   this.socket.req(pid, signal, {rids:[rid]})
-  //     .then(reqSuccess.bind(this), defer.reject);
-  //
-  //   return defer.promise;
-  //
-  //   // //////
-  //
-  //   function subSuccess(msgObj) {
-  //     if (msgObj.ok) {
-  //       defer.resolve(this);  // this is set to msgObj on previous call
-  //     } else {
-  //       defer.reject(
-  //       'sub.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined')
-  //       );
-  //     }
-  //   }
-  //
-  //   function reqSuccess(msgObj) {
-  //     if (msgObj.ok && msgObj.payload) {
-  //       this.user = msgObj.payload[0];
-  //       const signal = this.confUpdateSignal || defaults.confUpdateSignal;
-  //       this.socket.sub(this.userObjUpdate, signal, [rid])
-  //         .then(subSuccess.bind(msgObj), defer.reject);
-  //     } else {
-  //       defer.reject(
-  //       'req.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined')
-  //       );
-  //     }
-  //   }
-  // }
 
   // ------ PRIVATE METHODS ------ //
 
@@ -144,46 +89,40 @@ export default class ArchmageSession {
   }
 
   handleInitReply(msgObj, reqInitObj) {
-    console.log('Login reply: ', msgObj.toJS());
-    this.authenticated = msgObj.get('ok');
-
-    if (this.authenticated) {
-      this.authObj = reqInitObj.set('rid', undefined);
-      if (msgObj.get('payload') && msgObj.get('payload').get(0)) {
-        this.authObj = reqInitObj.set('rid', msgObj.get('payload').get(0));
-      }
+    this.authenticated = true;
+    this.authObj = reqInitObj.set('rid', undefined);
+    if (msgObj.get('payload') && msgObj.get('payload').get(0)) {
+      this.authObj = reqInitObj.set('rid', msgObj.get('payload').get(0));
     }
-    return this.authenticated;
+    if (window) {
+      window.localStorage.setItem('authObj', JSON.stringify(this.authObj.toJS()));
+    }
   }
 
-  // BELOW NEEDS CONVERSION!
-  // userObjUpdate(msgObj) {
-  //   if (msgObj.payload && _.isObject(msgObj.payload[0])) {
-  //     this.user = msgObj.payload[0];
-  //     if (_.isFunction(this.userObjUpdateCallback)) this.userObjUpdateCallback(msgObj);
-  //   }
-  // }
+  cachedInit() {
+    return this.socket.init(
+      this.authObj.get('userId'),
+      this.authObj.get('passwordHash'),
+      this.authObj.get('tenant'),
+      this.authObj.get('target'),
+      this.authObj.get('signal'),
+      this.authObj.get('source'),
+      this.authObj.get('payloadExtra'),
+    )
+      .then(msgObj => {
+        this.authenticated = true;
+        console.log('Re-login attempt was successful');
+        if (this.reloginCallback) this.reloginCallback(msgObj);
+      })
+      .catch(reason => {
+        console.log('Re-login attempt failed: ', reason);
+        if (this.reloginFailCallback) this.reloginFailCallback(reason);
+      });
+  }
 
   onOpen() {
     if (this.hasBeenConnected && this.authObj) {  // Need to relogin?
-      this.socket.init(
-        this.authObj.get('userId'),
-        this.authObj.get('passwordHash'),
-        this.authObj.get('tenant'),
-        this.authObj.get('target'),
-        this.authObj.get('signal'),
-        this.authObj.get('source'),
-        this.authObj.get('payloadExtra'),
-      )
-        .then(msgObj => {
-          this.authenticated = msgObj.get('ok');
-          console.log('Re-login attempt was successful');
-          if (this.reloginCallback) this.reloginCallback(msgObj);
-        })
-        .catch(reason => {
-          console.log('Re-login attempt failed: ', reason);
-          if (this.reloginFailCallback) this.reloginFailCallback(reason);
-        });
+      this.cachedInit();
     }
   }
 
@@ -199,3 +138,74 @@ export default class ArchmageSession {
 
   // const sha256 = SHA('sha256');
   // return sha256.update(phrase, 'utf8').digest('hex');
+
+
+
+    // BELOW NEEDS CONVERSION IF ACTIVATED!
+    // login(userId, password, tenant, pid, signal, source, payloadExtra) {
+    //   const passwordHash = this.hashify(password);
+    //   const defer = getDefer();
+    //
+    //   this.socket.init(userId, passwordHash, tenant, pid, signal, source, payloadExtra)
+    //     .then(initSuccess.bind(this));
+    //
+    //   return defer.promise;
+    //
+    //   // //////
+    //
+    //   function initSuccess(msgObj) {
+    //     if (this.handleInitReply(msgObj, userId, passwordHash)) {
+    //       if (this.authObj.rid) {
+    //         this.readUser(this.authObj.rid)
+    //           .then(defer.resolve, defer.reject);
+    //       } else {
+    //         defer.reject('No rid for user object: '+this.authObj.rid);
+    //       }
+    //     } else {
+    //       defer.reject(msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined'));
+    //     }
+    //   }
+    // }
+    // readUser(rid, pid, signal) {
+    //   const defer = getDefer();
+    //
+    //   pid = pid || this.confAPIName || defaults.confAPIName;
+    //   signal = signal || this.readUserSignal || defaults.readUserSignal;
+    //   this.socket.req(pid, signal, {rids:[rid]})
+    //     .then(reqSuccess.bind(this), defer.reject);
+    //
+    //   return defer.promise;
+    //
+    //   // //////
+    //
+    //   function subSuccess(msgObj) {
+    //     if (msgObj.ok) {
+    //       defer.resolve(this);  // this is set to msgObj on previous call
+    //     } else {
+    //       defer.reject(
+    //       'sub.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined')
+    //       );
+    //     }
+    //   }
+    //
+    //   function reqSuccess(msgObj) {
+    //     if (msgObj.ok && msgObj.payload) {
+    //       this.user = msgObj.payload[0];
+    //       const signal = this.confUpdateSignal || defaults.confUpdateSignal;
+    //       this.socket.sub(this.userObjUpdate, signal, [rid])
+    //         .then(subSuccess.bind(msgObj), defer.reject);
+    //     } else {
+    //       defer.reject(
+    //       'req.'+msgObj.signal+': '+(msgObj.payload ? msgObj.payload[0]+'' : 'undefined')
+    //       );
+    //     }
+    //   }
+    // }
+
+    // BELOW NEEDS CONVERSION!
+    // userObjUpdate(msgObj) {
+    //   if (msgObj.payload && _.isObject(msgObj.payload[0])) {
+    //     this.user = msgObj.payload[0];
+    //     if (_.isFunction(this.userObjUpdateCallback)) this.userObjUpdateCallback(msgObj);
+    //   }
+    // }

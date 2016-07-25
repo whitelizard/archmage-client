@@ -95,7 +95,7 @@ export class ArchmageSocket {
     return this.request(
       'sub', target, undefined, argumentz, undefined, tenant, undefined, channel
     ).then(tiipMsg => {
-      if (tiipMsg.get('ok') && tiipMsg.has('channel')) {
+      if (tiipMsg.has('channel')) {
         // Only support for subscription to one channel at a time
         this.subCallbacks = this.subCallbacks.set(tiipMsg.get('channel'), Map({
           callback,
@@ -187,6 +187,7 @@ export class ArchmageSocket {
           this.reqCallbacks = this.reqCallbacks.set(callbackId, fromJS({
             time: new Date(),
             resolve,
+            reject,
             timeoutPromise: setTimeout(() => {
               if (this.reqCallbacks.has(callbackId)) {
                 this.reqCallbacks = this.reqCallbacks.delete(callbackId);
@@ -229,7 +230,12 @@ export class ArchmageSocket {
           if (this.reqCallbacks.has(msgObj.get('mid'))) {
             const reqCallbackObj = this.reqCallbacks.get(msgObj.get('mid'));
             clearTimeout(reqCallbackObj.get('timeoutPromise'));
-            reqCallbackObj.get('resolve')(msgObj);
+            if (msgObj.get('ok')) {
+              reqCallbackObj.get('resolve')(msgObj);
+            } else {
+              reqCallbackObj.get('reject')('Error or denied');
+              errorReason = 'Request error, or denied';
+            }
             this.reqCallbacks = this.reqCallbacks.delete(msgObj.get('mid'));
           } else {
             errorReason = 'No request matched server reply';
