@@ -38,7 +38,7 @@ export default class WsClient {
 
   connect(url, protocols, options = {}) {
     this.init(url, protocols, options);
-    if (!this.socket || this.socket.readyState !== readyStates.get('OPEN')) {
+    if (!this.isOpen()) {
       this.socket = createWebSocket(this.url, this.protocols, this.customWsClient);
       this.socket.onmessage = ::this.onMessageHandler;
       this.socket.onopen = ::this.onOpenHandler;
