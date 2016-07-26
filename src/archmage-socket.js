@@ -1,7 +1,7 @@
 /** @module archmage-socket
  * @description High level Socket class agains an ARCHMAGE server.
  */
-import WsClient, { readyStates } from './ws-client';
+import WsClient from './ws-client';
 import * as tiip from 'jstiip';
 import Promise from 'bluebird';
 import { Map, Set, fromJS, Iterable, OrderedSet } from 'immutable';
@@ -134,7 +134,7 @@ export class ArchmageSocket {
   }
 
   isOpen() {
-    return this.ws.socket.readyState === readyStates.get('OPEN');
+    return this.ws.isOpen();
   }
 
   send(type, target, signal, args, payload, tenant, source, channel) {

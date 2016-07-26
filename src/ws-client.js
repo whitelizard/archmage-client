@@ -48,6 +48,10 @@ export default class WsClient {
     return this;
   }
 
+  isOpen() {
+    return this.socket && this.socket.readyState === readyStates.get('OPEN');
+  }
+
   init(url, protocols, options) {
     this.url = url || this.url;
     this.protocols = protocols || this.protocols;
