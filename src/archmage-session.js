@@ -1,6 +1,7 @@
 import { ArchmageSocket } from './archmage-socket';
 import { fromJS } from 'immutable';
 import crypto from 'crypto';
+import Promise from 'bluebird';
 
 // const defaults = {
 //   confAPIName: 'xiconf',
@@ -50,12 +51,12 @@ export default class ArchmageSession {
   }
 
   init() {
-    if (window) {
+    if (window && window.localStorage) {
       this.authObj = fromJS(JSON.parse(window.localStorage.getItem('authObj')));
       console.log('authObj from localStorage', this.authObj);
       return this.cachedInit();
     }
-    return undefined;
+    return Promise.reject();
   }
 
   auth(userId, password, tenant, target, signal, args) {
