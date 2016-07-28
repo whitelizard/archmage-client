@@ -50,12 +50,6 @@ export class ArchmageSocket {
     return this;
   }
 
-  /**
-   * Operation IDs for a device
-   * @param  {object} sensorSettings Map of devices sesors settings
-   * @param  {string} deviceId
-   * @return {array}                 Array of device's sensor operations IDs
-   */
   setOptions(options) {
     this.sendCallback = options.onSend || this.sendCallback;
     this.sendFailCallback = options.onSendFail || this.sendFailCallback;
@@ -80,6 +74,12 @@ export class ArchmageSocket {
     return this.ws.close(force);
   }
 
+  /**
+   * Operation IDs for a device
+   * @param  {object} sensorSettings Map of devices sesors settings
+   * @param  {string} deviceId
+   * @return {array}                 Array of device's sensor operations IDs
+   */
   req(target, signal, args, tenant) {
     return this.request('req', target, signal, args, undefined, tenant);
   }
@@ -110,7 +110,7 @@ export class ArchmageSocket {
     const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
     let fullChannel;
     this.subCallbacks.some(ch => {
-      if (secondaryKey === this.subCallbacks.getIn([ch, 'key'])) {
+      if (secondaryKey.equals(this.subCallbacks.getIn([ch, 'key']))) {
         fullChannel = ch;
         this.subCallbacks = this.subCallbacks.delete(ch);
         return true; // exit loop
@@ -191,12 +191,12 @@ export class ArchmageSocket {
             timeoutPromise: setTimeout(() => {
               if (this.reqCallbacks.has(callbackId)) {
                 this.reqCallbacks = this.reqCallbacks.delete(callbackId);
-                reject(defaults.get('timeoutErrorMessage'));
+                reject(new Error(defaults.get('timeoutErrorMessage')));
               }
             }, this.timeoutOnRequests || defaults.get('timeoutOnRequests')),
           }));
         })
-        .catch((reason) => reject(reason));
+        .catch(reason => reject(reason)); // reject the outer promise
     });
   }
 
@@ -213,7 +213,7 @@ export class ArchmageSocket {
   onMessage(msg) {
     let msgObj;
     let isTiip = true;
-    let errorReason = '';
+    let errorReason = undefined;
 
     try {
       msgObj = fromJS(tiip.unpack(msg.data));
@@ -233,7 +233,7 @@ export class ArchmageSocket {
             if (msgObj.get('ok')) {
               reqCallbackObj.get('resolve')(msgObj);
             } else {
-              reqCallbackObj.get('reject')('Error or denied');
+              reqCallbackObj.get('reject')(new Error('Error or denied'));
               errorReason = 'Request error, or denied';
             }
             this.reqCallbacks = this.reqCallbacks.delete(msgObj.get('mid'));
@@ -269,7 +269,7 @@ export class ArchmageSocket {
     }
     if (this.receiveCallback) {
       if (isTiip) {
-        this.receiveCallback(msgObj, errorReason || false, msgObj.get('type'));
+        this.receiveCallback(msgObj, errorReason, msgObj.get('type'));
       } else {
         this.receiveCallback(msg.data);
       }

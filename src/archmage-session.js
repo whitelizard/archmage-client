@@ -52,11 +52,13 @@ export default class ArchmageSession {
 
   init() {
     if (window && window.localStorage) {
-      this.authObj = fromJS(JSON.parse(window.localStorage.getItem('authObj')));
+      this.authObj = fromJS(JSON.parse(window.localStorage.getItem('authObj'))) || undefined;
       console.log('authObj from localStorage', this.authObj);
-      return this.cachedInit();
+      if (this.authObj) {
+        return this.cachedInit();
+      }
     }
-    return Promise.reject();
+    return Promise.reject(new Error('No cached credentials'));
   }
 
   auth(userId, password, tenant, target, signal, args) {
@@ -111,6 +113,7 @@ export default class ArchmageSession {
         this.authenticated = true;
         console.log('Re-login attempt was successful');
         if (this.reloginCallback) this.reloginCallback(msgObj);
+        return msgObj;
       })
       .catch(reason => {
         console.log('Re-login attempt failed: ', reason);
