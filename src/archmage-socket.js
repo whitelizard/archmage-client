@@ -119,7 +119,7 @@ export class ArchmageSocket {
     }, this);
     if (fullChannel) {
       return this.send('unsub',
-        undefined, undefined, args, undefined, undefined, undefined, channel
+        undefined, undefined, args, undefined, undefined, undefined, fullChannel
       );
     }
     return Promise.resolve();
