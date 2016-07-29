@@ -109,17 +109,17 @@ export class ArchmageSocket {
   unsub(channel, subChannel, target, tenant, args) {
     const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
     let fullChannel;
-    this.subCallbacks.some(ch => {
-      if (secondaryKey.equals(this.subCallbacks.getIn([ch, 'key']))) {
-        fullChannel = ch;
-        this.subCallbacks = this.subCallbacks.delete(ch);
+    this.subCallbacks.some((obj, key) => {
+      if (secondaryKey.equals(obj.get('key'))) {
+        fullChannel = key;
+        this.subCallbacks = this.subCallbacks.delete(channel);
         return true; // exit loop
       }
       return false;
     }, this);
     if (fullChannel) {
       return this.send('unsub',
-        undefined, undefined, args, undefined, undefined, undefined, channel
+        undefined, undefined, args, undefined, undefined, undefined, fullChannel
       );
     }
     return Promise.resolve();
@@ -135,6 +135,10 @@ export class ArchmageSocket {
 
   isOpen() {
     return this.ws.isOpen();
+  }
+
+  bufferedAmount() {
+    return this.ws.socket.bufferedAmount;
   }
 
   send(type, target, signal, args, payload, tenant, source, channel) {
@@ -165,6 +169,7 @@ export class ArchmageSocket {
       });
   }
 
+  // TODO: Support immutable ??
   request(type, target, signal, args, payload, tenant, source, channel) {
     let msg = Map({ type });
     if (target !== undefined) msg = msg.set('target', target);
