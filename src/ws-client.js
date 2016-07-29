@@ -34,6 +34,7 @@ export default class WsClient {
     this.onCloseCallbacks = List();
     this.onErrorCallbacks = List();
     this.onMessageCallbacks = List();
+    this.socket = undefined;
   }
 
   connect(url, protocols, options = {}) {
