@@ -85,6 +85,13 @@ export default class WsClient {
     return this;
   }
 
+  clearCallbacks() {
+    this.onOpenCallbacks = this.onOpenCallbacks.clear();
+    this.onCloseCallbacks = this.onCloseCallbacks.clear();
+    this.onErrorCallbacks = this.onErrorCallbacks.clear();
+    this.onMessageCallbacks = this.onMessageCallbacks.clear();
+  }
+
   send(message) {
     const self = this;
     return new Promise((resolve, reject) => {
