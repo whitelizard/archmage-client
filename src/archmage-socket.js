@@ -238,7 +238,11 @@ export class ArchmageSocket {
             if (msgObj.get('ok')) {
               reqCallbackObj.get('resolve')(msgObj);
             } else {
-              reqCallbackObj.get('reject')(new Error('Error or denied'));
+              reqCallbackObj.get('reject')(
+                new Error(`Request error, or denied. ${
+                  msgObj.get('payload') ? msgObj.get('payload').get(0) : ''
+                }`)
+              );
               errorReason = 'Request error, or denied';
             }
             this.reqCallbacks = this.reqCallbacks.delete(msgObj.get('mid'));
