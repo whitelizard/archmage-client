@@ -3,3 +3,4 @@ test/
 bin/
 src/test/
 lib/test/
+node_modules/
