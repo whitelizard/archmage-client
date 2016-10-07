@@ -103,7 +103,7 @@ export class ArchmageSocket {
    * @param {object} subscriptions as List:[{ callback:<func>, rid:<rid>, subChannel:<>}]
    */
   subMulti(subscriptions, tenant, args) {
-    const ridToSubscr = subscriptions.toMap().mapKeys((val, key) =>
+    const ridToSubscr = subscriptions.toMap().mapKeys(val =>
       val.get('rid')
     );
     let argumentz = Map({ subscriptions: subscriptions.map(
@@ -114,14 +114,17 @@ export class ArchmageSocket {
     return this.request('sub', undefined, undefined, argumentz, undefined, tenant, undefined)
       .then(tiipMsg => {
         this.subCallbacks = this.subCallbacks.merge(
-          tiipMsg.get('payload').toMap().mapKeys((s, key) => // payload to map on actual channels
-            s.get('channel')
-          ).map((s, channel) => // convert to subCallback objects
-            Map({
-              callback,
-              key: OrderedSet.of(s.get('rid'), ridToSubscr.get(rid).get('subChannel'), tenant),
-            })
-          )
+          // payload to map on actual channels:
+          tiipMsg.get('payload').toMap().mapKeys(s => s.get('channel'))
+          .map(s => { // convert to subCallback objects
+            const subscr = ridToSubscr.get(s.get('rid'));
+            return Map({
+              callback: subscr.get('callback'),
+              key: OrderedSet.of(
+                s.get('rid'), subscr.get('subChannel'), tenant
+              ),
+            });
+          })
         );
         return tiipMsg;
       });
