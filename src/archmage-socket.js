@@ -39,7 +39,7 @@ export class ArchmageSocket {
    * @param  {object} url Websocket URL
    * @param  {string} protocols Protocols object for the browser WebSocket API
    * @param  {string} options Options object {onSend, onSendFail, onReceive, timeoutOnRequests}
-   * @return {object}   The whole Socket (this)
+   * @return {object}  The whole Socket (this)
    */
   connect(url, protocols, options = {}) {
     this.setOptions(options);
@@ -74,40 +74,61 @@ export class ArchmageSocket {
     return this.ws.close(force);
   }
 
-  /**
-   * Operation IDs for a device
-   * @param  {object} sensorSettings Map of devices sesors settings
-   * @param  {string} deviceId
-   * @return {array}                 Array of device's sensor operations IDs
-   */
   req(target, signal, args, tenant) {
     return this.request('req', target, signal, args, undefined, tenant);
   }
 
-  sub(callback, channel, subChannel, target, tenant, args) {
-    /**
-    args: Map:{rid: <DataChannel rid>}
-    */
-    const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
+  sub(callback, channel, subChannel, tenant, args) {
+    const secondaryKey = OrderedSet.of(channel, subChannel, tenant);
     let argumentz = Map({ subChannel });
     if (args) argumentz = args.merge(argumentz);
 
     return this.request(
-      'sub', target, undefined, argumentz, undefined, tenant, undefined, channel
-    ).then(tiipMsg => {
-      if (tiipMsg.has('channel')) {
-        // Only support for subscription to one channel at a time
-        this.subCallbacks = this.subCallbacks.set(tiipMsg.get('channel'), Map({
-          callback,
-          key: secondaryKey,
-        }));
-      }
-      return tiipMsg;
-    });
+      'sub', undefined, undefined, argumentz, undefined, tenant, undefined, channel
+    )
+      .then(tiipMsg => {
+        if (tiipMsg.has('channel')) {
+          // Only support for subscription to one channel at a time
+          this.subCallbacks = this.subCallbacks.set(tiipMsg.get('channel'), Map({
+            callback,
+            key: secondaryKey,
+          }));
+        }
+        return tiipMsg;
+      });
   }
 
-  unsub(channel, subChannel, target, tenant, args) {
-    const secondaryKey = OrderedSet.of(channel, subChannel, target, tenant);
+  /**
+   * (FUTURE) Subscribe to multiple channels. UNTESTED!
+   * @param {object} subscriptions as List:[{ callback:<func>, rid:<rid>, subChannel:<>}]
+   */
+  subMulti(subscriptions, tenant, args) {
+    const ridToSubscr = subscriptions.toMap().mapKeys((val, key) =>
+      val.get('rid')
+    );
+    let argumentz = Map({ subscriptions: subscriptions.map(
+      s => s.delete('callback')
+    ) });
+    if (args) argumentz = args.merge(argumentz);
+
+    return this.request('sub', undefined, undefined, argumentz, undefined, tenant, undefined)
+      .then(tiipMsg => {
+        this.subCallbacks = this.subCallbacks.merge(
+          tiipMsg.get('payload').toMap().mapKeys((s, key) => // payload to map on actual channels
+            s.get('channel')
+          ).map((s, channel) => // convert to subCallback objects
+            Map({
+              callback,
+              key: OrderedSet.of(s.get('rid'), ridToSubscr.get(rid).get('subChannel'), tenant),
+            })
+          )
+        );
+        return tiipMsg;
+      });
+  }
+
+  unsub(channel, subChannel, tenant, args) {
+    const secondaryKey = OrderedSet.of(channel, subChannel, tenant);
     let fullChannel;
     this.subCallbacks.some((obj, key) => {
       if (secondaryKey.equals(obj.get('key'))) {
