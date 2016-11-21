@@ -1,5 +1,6 @@
 import Promise from 'bluebird';
 import { Map, List } from 'immutable';
+import { w3cwebsocket } from 'websocket';
 
 // const closeCode = 1000;
 const reconnectableStatus = 4000;
@@ -18,7 +19,11 @@ function createWebSocket(url, protocols, customWsClient) {
   if (!urlOk) {
     throw new Error('Invalid url provided');
   }
-  const Socket = customWsClient || window.WebSocket || window.MozWebSocket;
+  const window = typeof window === 'undefined' ? undefined : window;
+  const Socket = customWsClient ||
+                 window && window.WebSocket ||
+                 window && window.MozWebSocket ||
+                 w3cwebsocket;
   return new Socket(url, protocols || undefined);
 }
 

@@ -94,7 +94,7 @@ export default class ArchmageSession {
     if (msgObj.get('payload') && msgObj.get('payload').get(0)) {
       this.authObj = reqInitObj.set('rid', msgObj.get('payload').get(0));
     }
-    if (window) {
+    if (typeof window !== 'undefined') {
       window.localStorage.setItem('authObj', JSON.stringify(this.authObj.toJS()));
     }
   }
