@@ -182,7 +182,7 @@ export class ArchmageSocket {
   }
 
   sendRaw(text) {
-    console.log('Sending: ', text);
+    // console.log('Sending: ', text);
     return this.ws.send(text)
       .then(() => {
         if (this.sendCallback) this.sendCallback(text);

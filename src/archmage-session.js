@@ -53,7 +53,7 @@ export default class ArchmageSession {
   init() {
     if (window && window.localStorage) {
       this.authObj = fromJS(JSON.parse(window.localStorage.getItem('authObj'))) || undefined;
-      console.log('authObj from localStorage', this.authObj);
+      // console.log('authObj from localStorage', this.authObj);
       if (this.authObj) {
         return this.cachedInit();
       }
@@ -68,7 +68,7 @@ export default class ArchmageSession {
     });
     return this.socket.init(userId, passwordHash, tenant, target, signal, args)
       .then(msgObj => {
-        console.log('Login reply: ', msgObj.toJS());
+        // console.log('Login reply: ', msgObj.toJS());
         this.handleInitReply(msgObj, reqInitObj);
         return msgObj;
       });
@@ -94,7 +94,7 @@ export default class ArchmageSession {
     if (msgObj.get('payload') && msgObj.get('payload').get(0)) {
       this.authObj = reqInitObj.set('rid', msgObj.get('payload').get(0));
     }
-    if (typeof window !== 'undefined') {
+    if (window && window.localStorage) {
       window.localStorage.setItem('authObj', JSON.stringify(this.authObj.toJS()));
     }
   }
@@ -111,12 +111,12 @@ export default class ArchmageSession {
     )
       .then(msgObj => {
         this.authenticated = true;
-        console.log('Re-login attempt was successful');
+        // console.log('Re-login attempt was successful');
         if (this.reloginCallback) this.reloginCallback(msgObj);
         return msgObj;
       })
       .catch(reason => {
-        console.log('Re-login attempt failed: ', reason);
+        // console.log('Re-login attempt failed: ', reason);
         if (this.reloginFailCallback) this.reloginFailCallback(reason);
       });
   }
