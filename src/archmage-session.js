@@ -78,7 +78,9 @@ export default class ArchmageSession {
     this.user = undefined;
     this.authenticated = false;
     this.authObj = undefined;
-    window.localStorage.removeItem('authObj');
+    if (window && window.localStorage) {
+      window.localStorage.removeItem('authObj');
+    }
     return this.socket.kill(true);
   }
 
