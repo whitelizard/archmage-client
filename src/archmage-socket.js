@@ -281,11 +281,11 @@ export class ArchmageSocket {
             const channel = msgObj.get('channel');
             if (key === channel.substring(0, key.length)) {
               // If an object exists in subCallbacks, invoke its cb
-              const subCallbackObj = this.subCallbacks.get(key);
-              if (subCallbackObj.get('callback')) {
-                subCallbackObj.get('callback')(
+              const callback = this.subCallbacks.get(key).get('callback');
+              if (callback) {
+                callback(
                   msgObj.filter((v, field) =>
-                    Set.of('timestamp', 'source', 'signal', 'payload').has(field))
+                    Set.of('timestamp', 'source', 'signal', 'payload', 'clientTime').has(field))
                 );
               }
             }
