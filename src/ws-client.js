@@ -14,16 +14,16 @@ export const readyStates = Map({
   RECONNECT_ABORTED: 4,
 });
 
+const globalVar = typeof global !== 'undefined'
+  ? global
+  : (typeof window !== 'undefined' ? window : {});
+
 function createWebSocket(url, protocols, customWsClient) {
   const urlOk = /wss?:\/\//.exec(url);
   if (!urlOk) {
     throw new Error('Invalid url provided');
   }
-  const window = typeof window === 'undefined' ? undefined : window;
-  const Socket = customWsClient ||
-    window && window.WebSocket ||
-    window && window.MozWebSocket; // ||
-    // w3cwebsocket;
+  const Socket = customWsClient || globalVar.WebSocket || globalVar.MozWebSocket;
   return new Socket(url, protocols || undefined);
 }
 

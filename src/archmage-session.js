@@ -9,6 +9,10 @@ import Promise from 'bluebird';
 //   confUpdateSignal: 'confUpdate',
 // };
 
+const globalVar = typeof global !== 'undefined'
+  ? global
+  : (typeof window !== 'undefined' ? window : {});
+
 export default class ArchmageSession {
 
   // ------ SETUP ------ //
@@ -51,8 +55,8 @@ export default class ArchmageSession {
   }
 
   init() {
-    if (window && window.localStorage) {
-      this.authObj = fromJS(JSON.parse(window.localStorage.getItem('authObj'))) || undefined;
+    if (globalVar.localStorage) {
+      this.authObj = fromJS(JSON.parse(globalVar.localStorage.getItem('authObj'))) || undefined;
       // console.log('authObj from localStorage', this.authObj);
       if (this.authObj) {
         return this.cachedInit();
@@ -78,8 +82,8 @@ export default class ArchmageSession {
     this.user = undefined;
     this.authenticated = false;
     this.authObj = undefined;
-    if (window && window.localStorage) {
-      window.localStorage.removeItem('authObj');
+    if (globalVar.localStorage) {
+      globalVar.localStorage.removeItem('authObj');
     }
     return this.socket.kill(true);
   }
@@ -96,8 +100,8 @@ export default class ArchmageSession {
     if (msgObj.get('payload') && msgObj.get('payload').get(0)) {
       this.authObj = reqInitObj.set('rid', msgObj.get('payload').get(0));
     }
-    if (window && window.localStorage) {
-      window.localStorage.setItem('authObj', JSON.stringify(this.authObj.toJS()));
+    if (globalVar.localStorage) {
+      globalVar.localStorage.setItem('authObj', JSON.stringify(this.authObj.toJS()));
     }
   }
 

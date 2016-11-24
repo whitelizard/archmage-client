@@ -13,4 +13,5 @@ setTimeout(() => {
 }, 500);
 setTimeout(() => {
   expect(reply).to.equal('MSG1');
+  process.exit();
 }, 1500);
