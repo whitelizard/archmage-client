@@ -22,8 +22,8 @@ function createWebSocket(url, protocols, customWsClient) {
   const window = typeof window === 'undefined' ? undefined : window;
   const Socket = customWsClient ||
     window && window.WebSocket ||
-    window && window.MozWebSocket;// ||
-    //w3cwebsocket;
+    window && window.MozWebSocket; // ||
+    // w3cwebsocket;
   return new Socket(url, protocols || undefined);
 }
 

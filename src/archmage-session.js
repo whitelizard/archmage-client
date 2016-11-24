@@ -143,7 +143,6 @@ export default class ArchmageSession {
   // return sha256.update(phrase, 'utf8').digest('hex');
 
 
-
     // BELOW NEEDS CONVERSION IF ACTIVATED!
     // login(userId, password, tenant, pid, signal, source, payloadExtra) {
     //   const passwordHash = this.hashify(password);
