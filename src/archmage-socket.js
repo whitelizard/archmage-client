@@ -80,8 +80,13 @@ export class ArchmageSocket {
 
   sub(callback, channel, subChannel, tenant, args) {
     const secondaryKey = OrderedSet.of(channel, subChannel, tenant);
-    let argumentz = Map({ subChannel });
-    if (args) argumentz = args.merge(argumentz);
+    let argumentz;
+    if (subChannel) {
+      argumentz = Map({ subChannel });
+      if (args) argumentz = args.merge(argumentz);
+    } else if (args) {
+      argumentz = args;
+    }
 
     return this.request(
       'sub', undefined, undefined, argumentz, undefined, tenant, undefined, channel
@@ -252,6 +257,18 @@ export class ArchmageSocket {
       // console.log('Msg received: ', msg.data);
     }
 
+    function callSubCallback(channel) {
+      const callback = this.subCallbacks.getIn([channel, 'callback']);
+      if (callback) {
+        callback(
+          msgObj.filter((v, field) =>
+            Set.of('timestamp', 'source', 'signal', 'payload', 'clientTime')
+              .has(field)
+          )
+        );
+      }
+    }
+
     if (isTiip) {
       switch (msgObj.get('type')) {
         case 'rep': {
@@ -276,20 +293,26 @@ export class ArchmageSocket {
           break;
         }
         case 'pub': {
-          if (!this.subCallbacks.forEach((value, key) => {
-            // There could be a subchannel, cut the channel
-            const channel = msgObj.get('channel');
-            if (key === channel.substring(0, key.length)) {
-              // If an object exists in subCallbacks, invoke its cb
-              const callback = this.subCallbacks.get(key).get('callback');
-              if (callback) {
-                callback(
-                  msgObj.filter((v, field) =>
-                    Set.of('timestamp', 'source', 'signal', 'payload', 'clientTime').has(field))
-                );
-              }
+          const channel = msgObj.get('channel');
+          // First, try exact matching:
+          let done = this.subCallbacks.forEach((value, key) => {
+            if (key === channel) {
+              callSubCallback(key);
+              return false; // done
             }
-          })) {
+            return true;
+          });
+          // Then, if no callback found, try subchannel matching:
+          if (!done) {
+            done = this.subCallbacks.forEach((value, key) => {
+              if (key === channel.substring(0, key.length)) {
+                callSubCallback(key);
+                return false; // done
+              }
+              return true;
+            });
+          }
+          if (!done) {
             // No key found
             errorReason = 'No subscription for publication from server';
           }
