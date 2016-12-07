@@ -257,7 +257,7 @@ export class ArchmageSocket {
       // console.log('Msg received: ', msg.data);
     }
 
-    function callSubCallback(channel) {
+    const callSubCallback = (channel) => {
       const callback = this.subCallbacks.getIn([channel, 'callback']);
       if (callback) {
         callback(
@@ -267,7 +267,7 @@ export class ArchmageSocket {
           )
         );
       }
-    }
+    };
 
     if (isTiip) {
       switch (msgObj.get('type')) {
